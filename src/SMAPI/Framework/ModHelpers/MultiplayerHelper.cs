@@ -6,8 +6,7 @@ using StardewValley;
 namespace StardewModdingAPI.Framework.ModHelpers
 {
     /// <summary>Provides multiplayer utilities.</summary>
-    internal class MultiplayerHelper : BaseHelper, IMultiplayerHelper
-    {
+    internal class MultiplayerHelper : BaseHelper, IMultiplayerHelper {
         /*********
         ** Fields
         *********/
@@ -22,36 +21,31 @@ namespace StardewModdingAPI.Framework.ModHelpers
         /// <param name="modID">The unique ID of the relevant mod.</param>
         /// <param name="multiplayer">SMAPI's core multiplayer utility.</param>
         public MultiplayerHelper(string modID, SMultiplayer multiplayer)
-            : base(modID)
-        {
+            : base(modID) {
             this.Multiplayer = multiplayer;
         }
 
         /// <summary>Get a new multiplayer ID.</summary>
-        public long GetNewID()
-        {
+        public long GetNewID() {
             return this.Multiplayer.getNewID();
         }
 
         /// <summary>Get the locations which are being actively synced from the host.</summary>
-        public IEnumerable<GameLocation> GetActiveLocations()
-        {
+        public IEnumerable<GameLocation> GetActiveLocations() {
             return this.Multiplayer.activeLocations();
         }
 
         /// <summary>Get a connected player.</summary>
         /// <param name="id">The player's unique ID.</param>
         /// <returns>Returns the connected player, or <c>null</c> if no such player is connected.</returns>
-        public IMultiplayerPeer GetConnectedPlayer(long id)
-        {
+        public IMultiplayerPeer GetConnectedPlayer(long id) {
             return this.Multiplayer.Peers.TryGetValue(id, out MultiplayerPeer peer)
                 ? peer
                 : null;
         }
 
         /// <summary>Get all connected players.</summary>
-        public IEnumerable<IMultiplayerPeer> GetConnectedPlayers()
-        {
+        public IEnumerable<IMultiplayerPeer> GetConnectedPlayers() {
             return this.Multiplayer.Peers.Values;
         }
 
@@ -62,8 +56,7 @@ namespace StardewModdingAPI.Framework.ModHelpers
         /// <param name="modIDs">The mod IDs which should receive the message on the destination computers, or <c>null</c> for all mods. Specifying mod IDs is recommended to improve performance, unless it's a general-purpose broadcast.</param>
         /// <param name="playerIDs">The <see cref="Farmer.UniqueMultiplayerID" /> values for the players who should receive the message, or <c>null</c> for all players. If you don't need to broadcast to all players, specifying player IDs is recommended to reduce latency.</param>
         /// <exception cref="ArgumentNullException">The <paramref name="message"/> or <paramref name="messageType" /> is null.</exception>
-        public void SendMessage<TMessage>(TMessage message, string messageType, string[] modIDs = null, long[] playerIDs = null)
-        {
+        public void SendMessage<TMessage>(TMessage message, string messageType, string[] modIDs = null, long[] playerIDs = null) {
             this.Multiplayer.BroadcastModMessage(
                 message: message,
                 messageType: messageType,
@@ -71,6 +64,13 @@ namespace StardewModdingAPI.Framework.ModHelpers
                 toModIDs: modIDs,
                 toPlayerIDs: playerIDs
             );
+        }
+
+        /// <summary>Send a message to the host, requesting for a location to be always active</summary>
+        /// <param name="LocationName">The name of the location to be always active.</param>
+        /// <returns>An <see cref="ILease"/> object, acting as a contract for the sync.</returns>
+        public ILease RequestLocationSync(string LocationName) {
+            return this.Multiplayer.RequestLocationSync(LocationName);
         }
     }
 }

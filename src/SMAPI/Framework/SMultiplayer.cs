@@ -528,5 +528,32 @@ namespace StardewModdingAPI.Framework
 
             return new object[] { this.JsonHelper.Serialise(model, Formatting.None) };
         }
+
+        /// <summary>Gets whether the <see cref="GameLocation"/> is set to consistently sync.</summary>
+        /// <param name="location">The location to check.</param>
+        /// <returns><c>True</c> if the location is consistently sync. Otherwise <c>false</c>.</returns>
+        public override bool isAlwaysActiveLocation(GameLocation location) {
+            // List<Lease> required to iterate through.
+            return base.isAlwaysActiveLocation(location);
+        }
+
+        /// <summary>Gets the active locations, the locations currently synced.</summary>
+        /// <returns></returns>
+        public override IEnumerable<GameLocation> activeLocations() {
+            // List<Lease> required to iterate through.
+            return base.activeLocations();
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="LocationName"></param>
+        /// <returns></returns>
+        public ILease RequestLocationSync(string LocationName) {
+            GameLocation location = Game1.getLocationFromName(LocationName);
+            Lease newLease = new Lease(location);
+            this.HostPeer.SendMessage(new OutgoingMessage(MessageType.SyncRequest, Game1.player.UniqueMultiplayerID, new object[] { LocationName }));
+            //...
+        }
     }
 }

@@ -8,6 +8,9 @@ namespace StardewModdingAPI.Framework.Networking
         /*********
         ** SMAPI
         *********/
+        /// <summary>An initial GameLocation Sync Request for SMAPI to process.</summary>
+        SyncRequest = 253,
+
         /// <summary>A data message intended for mods to consume.</summary>
         ModMessage = 254,
 
