@@ -10,7 +10,7 @@ namespace StardewModdingAPI.Framework.Networking {
         private LeaseStatus _status;
         private DateTime timeStamp;
 
-        public readonly GameLocation Location { get; }
+        public GameLocation Location { get; }
 
         public LeaseStatus Status {
             get {
