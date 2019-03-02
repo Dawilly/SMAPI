@@ -319,7 +319,7 @@ namespace StardewModdingAPI.Framework.ModHelpers
                 foreach (string candidateKey in new[] { imageSource, $@"Maps\{imageSource}" })
                 {
                     string contentKey = candidateKey.EndsWith(".png")
-                        ? candidateKey.Substring(0, imageSource.Length - 4)
+                        ? candidateKey.Substring(0, candidateKey.Length - 4)
                         : candidateKey;
 
                     try

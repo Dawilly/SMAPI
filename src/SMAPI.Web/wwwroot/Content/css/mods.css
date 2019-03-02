@@ -6,7 +6,7 @@
 }
 
 #intro {
-    width: 50em;
+    max-width: 60em;
 }
 
 #beta-blurb {
@@ -128,8 +128,14 @@ table.wikitable > caption {
     opacity: 0.7;
 }
 
-#mod-list .mod-closed-source {
-    color: red;
-    font-size: 0.8em;
-    opacity: 0.5;
+#mod-list tr[data-status="abandoned"] .mod-page-links,
+#mod-list tr[data-status="broken"] .mod-page-links,
+#mod-list tr[data-status="obsolete"] .mod-page-links,
+#mod-list tr[data-status="unofficial"] .mod-page-links,
+#mod-list tr[data-status="workaround"] .mod-page-links {
+    text-decoration: line-through;
+}
+
+#mod-list td.smapi-3-col span {
+    border-bottom: 1px dashed gray;
 }

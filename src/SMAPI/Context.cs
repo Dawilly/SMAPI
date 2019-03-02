@@ -1,3 +1,4 @@
+using StardewModdingAPI.Enums;
 using StardewModdingAPI.Events;
 using StardewValley;
 using StardewValley.Menus;
@@ -39,5 +40,8 @@ namespace StardewModdingAPI
 
         /// <summary>Whether the game is currently writing to the save file.</summary>
         internal static bool IsSaving => Game1.activeClickableMenu is SaveGameMenu || Game1.activeClickableMenu is ShippingMenu; // saving is performed by SaveGameMenu, but it's wrapped by ShippingMenu on days when the player shipping something
+
+        /// <summary>The current stage in the game's loading process.</summary>
+        internal static LoadStage LoadStage { get; set; }
     }
 }

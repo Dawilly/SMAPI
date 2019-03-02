@@ -67,7 +67,7 @@ namespace StardewModdingAPI.Toolkit.Framework.ModScanning
                 if (!files.Any())
                     return new ModFolder(root, searchFolder, null, "it's an empty folder.");
                 if (files.All(file => this.PotentialXnbModExtensions.Contains(file.Extension)))
-                    return new ModFolder(root, searchFolder, null, "it's an older XNB mod which replaces game files (not run through SMAPI).");
+                    return new ModFolder(root, searchFolder, null, "it's not a SMAPI mod (see https://smapi.io/xnb for info).");
                 return new ModFolder(root, searchFolder, null, "it contains files, but none of them are manifest.json.");
             }
 

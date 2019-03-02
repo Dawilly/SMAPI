@@ -228,7 +228,7 @@ namespace StardewModdingAPI.Framework
             {
                 IAssetInfo info = new AssetInfo(locale, assetName, type, this.MainContentManager.AssertAndNormaliseAssetName);
                 return predicate(info);
-            });
+            }, dispose);
         }
 
         /// <summary>Purge matched assets from the cache.</summary>

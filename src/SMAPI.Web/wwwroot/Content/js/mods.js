@@ -2,7 +2,7 @@
 
 var smapi = smapi || {};
 var app;
-smapi.modList = function (mods) {
+smapi.modList = function (mods, enableBeta) {
     // init data
     var defaultStats = {
         total: 0,
@@ -23,101 +23,73 @@ smapi.modList = function (mods) {
         visibleStats: $.extend({}, defaultStats),
         filters: {
             source: {
-                open: {
-                    label: "open",
-                    id: "show-open-source",
-                    value: true
-                },
-                closed: {
-                    label: "closed",
-                    id: "show-closed-source",
-                    value: true
+                value: {
+                    open: { value: true },
+                    closed: { value: true }
                 }
             },
             status: {
-                ok: {
-                    label: "ok",
-                    id: "show-status-ok",
-                    value: true
-                },
-                optional: {
-                    label: "optional",
-                    id: "show-status-optional",
-                    value: true
-                },
-                unofficial: {
-                    label: "unofficial",
-                    id: "show-status-unofficial",
-                    value: true
-                },
-                workaround: {
-                    label: "workaround",
-                    id: "show-status-workaround",
-                    value: true
-                },
-                broken: {
-                    label: "broken",
-                    id: "show-status-broken",
-                    value: true
-                },
-                abandoned: {
-                    label: "abandoned",
-                    id: "show-status-abandoned",
-                    value: true
-                },
-                obsolete: {
-                    label: "obsolete",
-                    id: "show-status-obsolete",
-                    value: true
+                label: enableBeta ? "main status" : "status",
+                value: {
+                    // note: keys must match status returned by the API
+                    ok: { value: true },
+                    optional: { value: true },
+                    unofficial: { value: true },
+                    workaround: { value: true },
+                    broken: { value: true },
+                    abandoned: { value: true },
+                    obsolete: { value: true }
                 }
+            },
+            betaStatus: {
+                label: "beta status",
+                value: {} // cloned from status field if needed
             },
             download: {
-                chucklefish: {
-                    label: "Chucklefish",
-                    id: "show-chucklefish",
-                    value: true
-                },
-                moddrop: {
-                    label: "ModDrop",
-                    id: "show-moddrop",
-                    value: true
-                },
-                nexus: {
-                    label: "Nexus",
-                    id: "show-nexus",
-                    value: true
-                },
-                custom: {
-                    label: "custom",
-                    id: "show-custom",
-                    value: true
+                value: {
+                    chucklefish: { value: true, label: "Chucklefish" },
+                    moddrop: { value: true, label: "ModDrop" },
+                    nexus: { value: true, label: "Nexus" },
+                    custom: { value: true }
                 }
             },
-            "SMAPI 3.0": {
-                ok: {
-                    label: "ready",
-                    id: "show-smapi-3-ready",
-                    value: true
-                },
-                soon: {
-                    label: "soon",
-                    id: "show-smapi-3-soon",
-                    value: true
-                },
-                broken: {
-                    label: "broken",
-                    id: "show-smapi-3-broken",
-                    value: true
-                },
-                unknown: {
-                    label: "unknown",
-                    id: "show-smapi-3-unknown",
-                    value: true
+            smapi3: {
+                label: "SMAPI 3.0",
+                value: {
+                    // note: keys must match status returned by the API
+                    ok: { value: true, label: "ready" },
+                    soon: { value: true },
+                    broken: { value: true },
+                    unknown: { value: true }
                 }
             }
         },
         search: ""
     };
+
+    // init filters
+    Object.entries(data.filters).forEach(([groupKey, filterGroup]) => {
+        filterGroup.label = filterGroup.label || groupKey;
+        Object.entries(filterGroup.value).forEach(([filterKey, filter]) => {
+            filter.id = ("filter_" + groupKey + "_" + filterKey).replace(/[^a-zA-Z0-9]/g, "_");
+            filter.label = filter.label || filterKey;
+        });
+    });
+
+    // init beta filters
+    if (enableBeta) {
+        var filterGroup = data.filters.betaStatus;
+        $.extend(true, filterGroup.value, data.filters.status.value);
+        Object.entries(filterGroup.value).forEach(([filterKey, filter]) => {
+            filter.id = "beta_" + filter.id;
+        });
+    }
+    else
+        delete data.filters.betaStatus;
+
+    window.boop = data.filters;
+
+    // init mods
     for (var i = 0; i < data.mods.length; i++) {
         var mod = mods[i];
 
@@ -130,15 +102,18 @@ smapi.modList = function (mods) {
         // set SMAPI 3.0 display text
         switch (mod.Smapi3Status) {
             case "ok":
-                mod.Smapi3DisplayText = "✓";
+                mod.Smapi3DisplayText = "✓ yes";
+                mod.Smapi3Tooltip = "The latest version of this mod is compatible with SMAPI 3.0.";
                 break;
 
             case "broken":
-                mod.Smapi3DisplayText = "✖";
+                mod.Smapi3DisplayText = "✖ no";
+                mod.Smapi3Tooltip = "This mod will break in SMAPI 3.0; consider notifying the author.";
                 break;
 
             default:
                 mod.Smapi3DisplayText = "↻ " + mod.Smapi3Status;
+                mod.Smapi3Tooltip = "This mod has a pending update for SMAPI 3.0 which hasn't been released yet.";
                 break;
         }
 
@@ -214,30 +189,37 @@ smapi.modList = function (mods) {
                 var filters = data.filters;
 
                 // check source
-                if (!filters.source.open.value && mod.SourceUrl)
+                if (!filters.source.value.open.value && mod.SourceUrl)
                     return false;
-                if (!filters.source.closed.value && !mod.SourceUrl)
+                if (!filters.source.value.closed.value && !mod.SourceUrl)
                     return false;
 
                 // check status
-                var status = mod.LatestCompatibility.Status;
-                if (filters.status[status] && !filters.status[status].value)
+                var mainStatus = mod.Compatibility.Status;
+                if (filters.status.value[mainStatus] && !filters.status.value[mainStatus].value)
                     return false;
 
+                // check beta status
+                if (enableBeta) {
+                    var betaStatus = mod.LatestCompatibility.Status;
+                    if (filters.betaStatus.value[betaStatus] && !filters.betaStatus.value[betaStatus].value)
+                        return false;
+                }
+
                 // check SMAPI 3.0 compatibility
-                if (filters["SMAPI 3.0"][mod.Smapi3Status] && !filters["SMAPI 3.0"][mod.Smapi3Status].value)
+                if (filters.smapi3.value[mod.Smapi3Status] && !filters.smapi3.value[mod.Smapi3Status].value)
                     return false;
 
                 // check download sites
                 var ignoreSites = [];
 
-                if (!filters.download.chucklefish.value)
+                if (!filters.download.value.chucklefish.value)
                     ignoreSites.push("Chucklefish");
-                if (!filters.download.moddrop.value)
+                if (!filters.download.value.moddrop.value)
                     ignoreSites.push("ModDrop");
-                if (!filters.download.nexus.value)
+                if (!filters.download.value.nexus.value)
                     ignoreSites.push("Nexus");
-                if (!filters.download.custom.value)
+                if (!filters.download.value.custom.value)
                     ignoreSites.push("custom");
 
                 if (ignoreSites.length) {

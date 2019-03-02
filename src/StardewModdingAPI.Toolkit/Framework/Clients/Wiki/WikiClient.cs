@@ -39,7 +39,7 @@ namespace StardewModdingAPI.Toolkit.Framework.Clients.Wiki
                 .WithArguments(new
                 {
                     action = "parse",
-                    page = "Modding:SMAPI_compatibility",
+                    page = "Modding:Mod_compatibility",
                     format = "json"
                 })
                 .As<ResponseModel>();
