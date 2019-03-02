@@ -94,7 +94,7 @@
                     <span v-else class="mod-closed-source">no source</span>
                 </td>
                 <td v-show="showAdvanced">
-                    <small v-if="mod.LatestCompatibility.Status == 'ok' || mod.LatestCompatibility.Status == 'unofficial' || mod.Smapi3Status == 'ok' || mod.Smapi3Status == 'soon' || mod.Smapi3Url">
+                    <small v-if="mod.LatestCompatibility.Status == 'ok' || mod.LatestCompatibility.Status == 'unofficial' || mod.LatestCompatibility.Status == 'optional' || mod.Smapi3Status == 'ok' || mod.Smapi3Status == 'soon' || mod.Smapi3Url">
                         <a v-if="mod.Smapi3Url" v-bind:href="mod.Smapi3Url">{{mod.Smapi3DisplayText}}</a>
                         <template v-else>{{mod.Smapi3DisplayText}}</template>
                     </small>
