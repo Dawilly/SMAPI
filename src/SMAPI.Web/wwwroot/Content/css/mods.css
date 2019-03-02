@@ -6,7 +6,7 @@
 }
 
 #intro {
-    width: 50em;
+    max-width: 60em;
 }
 
 #beta-blurb {

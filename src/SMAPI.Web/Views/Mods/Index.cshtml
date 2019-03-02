@@ -1,7 +1,7 @@
 @using Newtonsoft.Json
 @model StardewModdingAPI.Web.ViewModels.ModListModel
 @{
-    ViewData["Title"] = "SMAPI mod compatibility";
+    ViewData["Title"] = "Mod compatibility";
 }
 @section Head {
     <link rel="stylesheet" href="~/Content/css/mods.css?r=20190125" />
@@ -19,9 +19,9 @@
 }
 
 <div id="intro">
-    <p>This page lists all known SMAPI mods, whether they're compatible with the latest versions of Stardew Valley and SMAPI, and how to fix broken mods if possible. The list is updated every few days. (You can help <a href="https://stardewvalleywiki.com/Modding:Mod_compatibility">edit this list</a>!)</p>
+    <p>This page shows all known SMAPI mods and (incompatible) content packs, whether they work with the latest versions of Stardew Valley and SMAPI, and how to fix them if not. If a mod doesn't work after following the instructions below, check <a href="https://stardewvalleywiki.com/Modding:Player_Guide/Troubleshooting">the troubleshooting guide</a> or <a href="https://stardewvalleywiki.com/Modding:Player_Guide/Troubleshooting#Ask_for_help">ask for help</a>.</p>
 
-    <p>If a mod doesn't work after following the instructions below, check <a href="https://stardewvalleywiki.com/Modding:Player_Guide/Troubleshooting">the troubleshooting guide</a> or <a href="https://stardewvalleywiki.com/Modding:Player_Guide/Troubleshooting#Ask_for_help">ask for help</a>.</p>
+    <p>The list is updated every few days (you can help <a href="https://stardewvalleywiki.com/Modding:Mod_compatibility">update it</a>!). It doesn't include XNB mods (see <a href="https://stardewvalleywiki.com/Modding:Using_XNB_mods"><em>using XNB mods</em> on the wiki</a> instead) or compatible content packs.</p>
 
     @if (Model.BetaVersion != null)
     {
