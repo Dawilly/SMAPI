@@ -135,3 +135,7 @@ table.wikitable > caption {
 #mod-list tr[data-status="workaround"] .mod-page-links {
     text-decoration: line-through;
 }
+
+#mod-list td.smapi-3-col span {
+    border-bottom: 1px dashed gray;
+}
