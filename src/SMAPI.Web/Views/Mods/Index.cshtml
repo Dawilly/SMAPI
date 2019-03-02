@@ -61,7 +61,7 @@
                 <th>compatibility</th>
                 <th v-show="showAdvanced">broke in</th>
                 <th v-show="showAdvanced">code</th>
-                <th v-show="showAdvanced"><a href="http://smapi.io/3.0">3.0</a></th>
+                <th><small><a href="http://smapi.io/3.0">3.0 ready</a></small></th>
                 <th>&nbsp;</th>
             </tr>
         </thead>
@@ -93,7 +93,7 @@
                     <span v-if="mod.SourceUrl"><a v-bind:href="mod.SourceUrl">source</a></span>
                     <span v-else class="mod-closed-source">no source</span>
                 </td>
-                <td v-show="showAdvanced">
+                <td>
                     <small v-if="mod.LatestCompatibility.Status == 'ok' || mod.LatestCompatibility.Status == 'unofficial' || mod.LatestCompatibility.Status == 'optional' || mod.Smapi3Status == 'ok' || mod.Smapi3Status == 'soon' || mod.Smapi3Url">
                         <a v-if="mod.Smapi3Url" v-bind:href="mod.Smapi3Url">{{mod.Smapi3DisplayText}}</a>
                         <template v-else>{{mod.Smapi3DisplayText}}</template>
