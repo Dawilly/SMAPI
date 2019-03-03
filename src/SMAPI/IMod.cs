@@ -12,6 +12,8 @@ namespace StardewModdingAPI
         /// <summary>Writes messages to the console and log file.</summary>
         IMonitor Monitor { get; }
 
+        IShader Shaders { get; }
+
         /// <summary>The mod's manifest.</summary>
         IManifest ModManifest { get; }
 

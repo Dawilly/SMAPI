@@ -65,6 +65,8 @@ namespace StardewModdingAPI.Framework
         /// <summary>The SMAPI configuration settings.</summary>
         private readonly SConfig Settings;
 
+        private readonly Shader Shaders = new Shader();
+
         /// <summary>The underlying game instance.</summary>
         private SGame GameInstance;
 
@@ -210,7 +212,7 @@ namespace StardewModdingAPI.Framework
 
                 // override game
                 SGame.ConstructorHack = new SGameConstructorHack(this.Monitor, this.Reflection, this.Toolkit.JsonHelper);
-                this.GameInstance = new SGame(this.Monitor, this.MonitorForGame, this.Reflection, this.EventManager, this.Toolkit.JsonHelper, this.ModRegistry, SCore.DeprecationManager, this.OnLocaleChanged, this.InitialiseAfterGameStart, this.Dispose);
+                this.GameInstance = new SGame(this.Monitor, this.MonitorForGame, this.Shaders, this.Reflection, this.EventManager, this.Toolkit.JsonHelper, this.ModRegistry, SCore.DeprecationManager, this.OnLocaleChanged, this.InitialiseAfterGameStart, this.Dispose);
                 StardewValley.Program.gamePtr = this.GameInstance;
 
                 // apply game patches
@@ -1000,13 +1002,14 @@ namespace StardewModdingAPI.Framework
                             return new ContentPack(packDirPath, packManifest, packContentHelper, this.Toolkit.JsonHelper);
                         }
 
-                        modHelper = new ModHelper(manifest.UniqueID, mod.DirectoryPath, this.GameInstance.Input, events, contentHelper, contentPackHelper, commandHelper, dataHelper, modRegistryHelper, reflectionHelper, multiplayerHelper, translationHelper);
+                        modHelper = new ModHelper(manifest.UniqueID, mod.DirectoryPath, this.GameInstance.Input, events, contentHelper, contentPackHelper, commandHelper, dataHelper, modRegistryHelper, reflectionHelper, multiplayerHelper, this.Shaders, translationHelper);
                     }
 
                     // init mod
                     modEntry.ModManifest = manifest;
                     modEntry.Helper = modHelper;
                     modEntry.Monitor = monitor;
+                    modEntry.Shaders = this.Shaders;
 
                     // track mod
                     mod.SetMod(modEntry);

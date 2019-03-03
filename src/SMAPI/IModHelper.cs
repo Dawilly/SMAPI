@@ -32,6 +32,8 @@ namespace StardewModdingAPI
         /// <summary>Simplifies access to private game code.</summary>
         IReflectionHelper Reflection { get; }
 
+        IShader Shaders { get; }
+
         /// <summary>Metadata about loaded mods.</summary>
         IModRegistry ModRegistry { get; }
 

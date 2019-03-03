@@ -175,6 +175,7 @@
     <Compile Include="Framework\Content\ContentCache.cs" />
     <Compile Include="Framework\Input\GamePadStateBuilder.cs" />
     <Compile Include="Framework\ModHelpers\InputHelper.cs" />
+    <Compile Include="Framework\Shader.cs" />
     <Compile Include="Framework\SModHooks.cs" />
     <Compile Include="Framework\Singleton.cs" />
     <Compile Include="Framework\StateTracking\Comparers\GenericEqualsComparer.cs" />
@@ -235,6 +236,7 @@
     <Compile Include="IReflectedMethod.cs" />
     <Compile Include="IReflectedProperty.cs" />
     <Compile Include="IMultiplayerPeerMod.cs" />
+    <Compile Include="IShader.cs" />
     <Compile Include="Metadata\CoreAssetPropagator.cs" />
     <Compile Include="ContentSource.cs" />
     <Compile Include="Framework\Content\AssetInfo.cs" />
@@ -354,6 +356,7 @@
       <Name>StardewModdingAPI.Toolkit</Name>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup />
   <Import Project="..\SMAPI.Internal\SMAPI.Internal.projitems" Label="Shared" />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="..\..\build\common.targets" />

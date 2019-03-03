@@ -33,6 +33,8 @@ namespace StardewModdingAPI.Framework.ModHelpers
         /// <summary>An API for accessing private game code.</summary>
         public IReflectionHelper Reflection { get; }
 
+        public IShader Shaders { get; }
+
         /// <summary>an API for fetching metadata about loaded mods.</summary>
         public IModRegistry ModRegistry { get; }
 
@@ -64,7 +66,7 @@ namespace StardewModdingAPI.Framework.ModHelpers
         /// <param name="translationHelper">An API for reading translations stored in the mod's <c>i18n</c> folder.</param>
         /// <exception cref="ArgumentNullException">An argument is null or empty.</exception>
         /// <exception cref="InvalidOperationException">The <paramref name="modDirectory"/> path does not exist on disk.</exception>
-        public ModHelper(string modID, string modDirectory, SInputState inputState, IModEvents events, IContentHelper contentHelper, IContentPackHelper contentPackHelper, ICommandHelper commandHelper, IDataHelper dataHelper, IModRegistry modRegistry, IReflectionHelper reflectionHelper, IMultiplayerHelper multiplayer, ITranslationHelper translationHelper)
+        public ModHelper(string modID, string modDirectory, SInputState inputState, IModEvents events, IContentHelper contentHelper, IContentPackHelper contentPackHelper, ICommandHelper commandHelper, IDataHelper dataHelper, IModRegistry modRegistry, IReflectionHelper reflectionHelper, IMultiplayerHelper multiplayer, IShader shaders, ITranslationHelper translationHelper)
             : base(modID)
         {
             // validate directory
@@ -83,6 +85,7 @@ namespace StardewModdingAPI.Framework.ModHelpers
             this.ConsoleCommands = commandHelper ?? throw new ArgumentNullException(nameof(commandHelper));
             this.Reflection = reflectionHelper ?? throw new ArgumentNullException(nameof(reflectionHelper));
             this.Multiplayer = multiplayer ?? throw new ArgumentNullException(nameof(multiplayer));
+            this.Shaders = shaders ?? throw new ArgumentNullException(nameof(shaders));
             this.Translation = translationHelper ?? throw new ArgumentNullException(nameof(translationHelper));
             this.Events = events;
         }
