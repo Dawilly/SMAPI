@@ -1,11 +1,8 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Text;
 using System.Threading.Tasks;
-using System.Web;
 using Pathoschild.Http.Client;
 
 namespace StardewModdingAPI.Web.Framework.Clients.Pastebin
@@ -82,15 +79,15 @@ namespace StardewModdingAPI.Web.Framework.Clients.Pastebin
                 // post to API
                 string response = await this.Client
                     .PostAsync("api/api_post.php")
-                    .WithBodyContent(this.GetFormUrlEncodedContent(new Dictionary<string, string>
+                    .WithBody(p => p.FormUrlEncoded(new
                     {
-                        ["api_option"] = "paste",
-                        ["api_user_key"] = this.UserKey,
-                        ["api_dev_key"] = this.DevKey,
-                        ["api_paste_private"] = "1", // unlisted
-                        ["api_paste_name"] = $"SMAPI log {DateTime.UtcNow:s}",
-                        ["api_paste_expire_date"] = "N", // never expire
-                        ["api_paste_code"] = content
+                        api_option = "paste",
+                        api_user_key = this.UserKey,
+                        api_dev_key = this.DevKey,
+                        api_paste_private = 1, // unlisted
+                        api_paste_name = $"SMAPI log {DateTime.UtcNow:s}",
+                        api_paste_expire_date = "N", // never expire
+                        api_paste_code = content
                     }))
                     .AsString();
 
@@ -116,19 +113,6 @@ namespace StardewModdingAPI.Web.Framework.Clients.Pastebin
         public void Dispose()
         {
             this.Client.Dispose();
-        }
-
-
-        /*********
-        ** Private methods
-        *********/
-        /// <summary>Build an HTTP content body with form-url-encoded content.</summary>
-        /// <param name="data">The content to encode.</param>
-        /// <remarks>This bypasses an issue where <see cref="FormUrlEncodedContent"/> restricts the body length to the maximum size of a URL, which isn't applicable here.</remarks>
-        private HttpContent GetFormUrlEncodedContent(IDictionary<string, string> data)
-        {
-            string body = string.Join("&", from arg in data select $"{HttpUtility.UrlEncode(arg.Key)}={HttpUtility.UrlEncode(arg.Value)}");
-            return new StringContent(body, Encoding.UTF8, "application/x-www-form-urlencoded");
         }
     }
 }

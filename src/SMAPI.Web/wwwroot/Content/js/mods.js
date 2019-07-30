@@ -11,11 +11,7 @@ smapi.modList = function (mods, enableBeta) {
         soon: 0,
         broken: 0,
         abandoned: 0,
-        invalid: 0,
-        smapi3_unknown: 0,
-        smapi3_ok: 0,
-        smapi3_broken: 0,
-        smapi3_soon: 0
+        invalid: 0
     };
     var data = {
         mods: mods,
@@ -52,16 +48,6 @@ smapi.modList = function (mods, enableBeta) {
                     nexus: { value: true, label: "Nexus" },
                     custom: { value: true }
                 }
-            },
-            smapi3: {
-                label: "SMAPI 3.0",
-                value: {
-                    // note: keys must match status returned by the API
-                    ok: { value: true, label: "ready" },
-                    soon: { value: true },
-                    broken: { value: true },
-                    unknown: { value: true }
-                }
             }
         },
         search: ""
@@ -87,8 +73,6 @@ smapi.modList = function (mods, enableBeta) {
     else
         delete data.filters.betaStatus;
 
-    window.boop = data.filters;
-
     // init mods
     for (var i = 0; i < data.mods.length; i++) {
         var mod = mods[i];
@@ -99,6 +83,7 @@ smapi.modList = function (mods, enableBeta) {
         // set overall compatibility
         mod.LatestCompatibility = mod.BetaCompatibility || mod.Compatibility;
 
+<<<<<<< HEAD
         // set SMAPI 3.0 display text
         switch (mod.Smapi3Status) {
             case "ok":
@@ -117,6 +102,8 @@ smapi.modList = function (mods, enableBeta) {
                 break;
         }
 
+=======
+>>>>>>> upstream/develop
         // concatenate searchable text
         mod.SearchableText = [mod.Name, mod.AlternateNames, mod.Author, mod.AlternateAuthors, mod.Compatibility.Summary, mod.BrokeIn];
         if (mod.Compatibility.UnofficialVersion)
@@ -173,7 +160,6 @@ smapi.modList = function (mods, enableBeta) {
                     if (mod.Visible) {
                         stats.total++;
                         stats[this.getCompatibilityGroup(mod)]++;
-                        stats["smapi3_" + mod.Smapi3Status]++;
                     }
                 }
             },
@@ -187,6 +173,10 @@ smapi.modList = function (mods, enableBeta) {
              */
             matchesFilters: function(mod, searchWords) {
                 var filters = data.filters;
+
+                // check hash
+                if (location.hash === "#" + mod.Slug)
+                    return true;
 
                 // check source
                 if (!filters.source.value.open.value && mod.SourceUrl)
@@ -205,10 +195,6 @@ smapi.modList = function (mods, enableBeta) {
                     if (filters.betaStatus.value[betaStatus] && !filters.betaStatus.value[betaStatus].value)
                         return false;
                 }
-
-                // check SMAPI 3.0 compatibility
-                if (filters.smapi3.value[mod.Smapi3Status] && !filters.smapi3.value[mod.Smapi3Status].value)
-                    return false;
 
                 // check download sites
                 var ignoreSites = [];
@@ -281,4 +267,7 @@ smapi.modList = function (mods, enableBeta) {
         }
     });
     app.applyFilters();
+    window.addEventListener("hashchange", function () {
+        app.applyFilters();
+    });
 };

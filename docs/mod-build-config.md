@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 The **mod build package** is an open-source NuGet package which automates the MSBuild configuration
 for SMAPI mods.
 
@@ -284,3 +285,6 @@ _[Game path](#game-path)_ above.
 * Added support for detecting the game path automatically.
 * Added support for injecting XNA/MonoGame references automatically based on the OS.
 * Added support for mod builders like SilVerPLuM.
+=======
+[Documentation moved](technical/mod-package.md).
+>>>>>>> upstream/develop

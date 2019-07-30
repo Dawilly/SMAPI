@@ -51,6 +51,9 @@ namespace StardewModdingAPI.Framework
         /// <summary>A callback to invoke when a mod message is received.</summary>
         private readonly Action<ModMessageModel> OnModMessageReceived;
 
+        /// <summary>Whether to log network traffic.</summary>
+        private readonly bool LogNetworkTraffic;
+
 
         /*********
         ** Accessors
@@ -72,7 +75,8 @@ namespace StardewModdingAPI.Framework
         /// <param name="modRegistry">Tracks the installed mods.</param>
         /// <param name="reflection">Simplifies access to private code.</param>
         /// <param name="onModMessageReceived">A callback to invoke when a mod message is received.</param>
-        public SMultiplayer(IMonitor monitor, EventManager eventManager, JsonHelper jsonHelper, ModRegistry modRegistry, Reflector reflection, Action<ModMessageModel> onModMessageReceived)
+        /// <param name="logNetworkTraffic">Whether to log network traffic.</param>
+        public SMultiplayer(IMonitor monitor, EventManager eventManager, JsonHelper jsonHelper, ModRegistry modRegistry, Reflector reflection, Action<ModMessageModel> onModMessageReceived, bool logNetworkTraffic)
         {
             this.Monitor = monitor;
             this.EventManager = eventManager;
@@ -80,6 +84,7 @@ namespace StardewModdingAPI.Framework
             this.ModRegistry = modRegistry;
             this.Reflection = reflection;
             this.OnModMessageReceived = onModMessageReceived;
+            this.LogNetworkTraffic = logNetworkTraffic;
         }
 
         /// <summary>Perform cleanup needed when a multiplayer session ends.</summary>
@@ -143,7 +148,7 @@ namespace StardewModdingAPI.Framework
         /// <param name="resume">Resume sending the underlying message.</param>
         protected void OnClientSendingMessage(OutgoingMessage message, Action<OutgoingMessage> sendMessage, Action resume)
         {
-            if (this.Monitor.IsVerbose)
+            if (this.LogNetworkTraffic)
                 this.Monitor.Log($"CLIENT SEND {(MessageType)message.MessageType} {message.FarmerID}", LogLevel.Trace);
 
             switch (message.MessageType)
@@ -167,7 +172,7 @@ namespace StardewModdingAPI.Framework
         /// <param name="resume">Process the message using the game's default logic.</param>
         public void OnServerProcessingMessage(IncomingMessage message, Action<OutgoingMessage> sendMessage, Action resume)
         {
-            if (this.Monitor.IsVerbose)
+            if (this.LogNetworkTraffic)
                 this.Monitor.Log($"SERVER RECV {(MessageType)message.MessageType} {message.FarmerID}", LogLevel.Trace);
 
             switch (message.MessageType)
@@ -247,7 +252,7 @@ namespace StardewModdingAPI.Framework
         /// <returns>Returns whether the message was handled.</returns>
         public void OnClientProcessingMessage(IncomingMessage message, Action<OutgoingMessage> sendMessage, Action resume)
         {
-            if (this.Monitor.IsVerbose)
+            if (this.LogNetworkTraffic)
                 this.Monitor.Log($"CLIENT RECV {(MessageType)message.MessageType} {message.FarmerID}", LogLevel.Trace);
 
             switch (message.MessageType)
@@ -371,7 +376,7 @@ namespace StardewModdingAPI.Framework
             string data = JsonConvert.SerializeObject(model, Formatting.None);
 
             // log message
-            if (this.Monitor.IsVerbose)
+            if (this.LogNetworkTraffic)
                 this.Monitor.Log($"Broadcasting '{messageType}' message: {data}.", LogLevel.Trace);
 
             // send message
@@ -432,8 +437,8 @@ namespace StardewModdingAPI.Framework
             string json = message.Reader.ReadString();
             ModMessageModel model = this.JsonHelper.Deserialise<ModMessageModel>(json);
             HashSet<long> playerIDs = new HashSet<long>(model.ToPlayerIDs ?? this.GetKnownPlayerIDs());
-            if (this.Monitor.IsVerbose)
-                this.Monitor.Log($"Received message: {json}.");
+            if (this.LogNetworkTraffic)
+                this.Monitor.Log($"Received message: {json}.", LogLevel.Trace);
 
             // notify local mods
             if (playerIDs.Contains(Game1.player.UniqueMultiplayerID))

@@ -5,7 +5,7 @@ using System.Reflection;
 using StardewModdingAPI.Enums;
 using StardewModdingAPI.Framework;
 using StardewModdingAPI.Framework.ModLoading;
-using StardewModdingAPI.Internal;
+using StardewModdingAPI.Toolkit.Utilities;
 using StardewValley;
 
 namespace StardewModdingAPI
@@ -20,10 +20,10 @@ namespace StardewModdingAPI
         ** Public
         ****/
         /// <summary>SMAPI's current semantic version.</summary>
-        public static ISemanticVersion ApiVersion { get; } = new Toolkit.SemanticVersion("2.11.0");
+        public static ISemanticVersion ApiVersion { get; } = new Toolkit.SemanticVersion("3.0.0");
 
         /// <summary>The minimum supported version of Stardew Valley.</summary>
-        public static ISemanticVersion MinimumGameVersion { get; } = new GameVersion("1.3.36");
+        public static ISemanticVersion MinimumGameVersion { get; } = new GameVersion("1.4.0");
 
         /// <summary>The maximum supported version of Stardew Valley.</summary>
         public static ISemanticVersion MaximumGameVersion { get; } = null;
@@ -59,10 +59,10 @@ namespace StardewModdingAPI
         internal static readonly string InternalFilesPath = Program.DllSearchPath;
 
         /// <summary>The file path for the SMAPI configuration file.</summary>
-        internal static string ApiConfigPath => Path.Combine(Constants.InternalFilesPath, "StardewModdingAPI.config.json");
+        internal static string ApiConfigPath => Path.Combine(Constants.InternalFilesPath, "config.json");
 
         /// <summary>The file path for the SMAPI metadata file.</summary>
-        internal static string ApiMetadataPath => Path.Combine(Constants.InternalFilesPath, "StardewModdingAPI.metadata.json");
+        internal static string ApiMetadataPath => Path.Combine(Constants.InternalFilesPath, "metadata.json");
 
         /// <summary>The filename prefix used for all SMAPI logs.</summary>
         internal static string LogNamePrefix { get; } = "SMAPI-";
@@ -89,13 +89,16 @@ namespace StardewModdingAPI
         internal static string ModsPath { get; set; }
 
         /// <summary>The game's current semantic version.</summary>
-        internal static ISemanticVersion GameVersion { get; } = new GameVersion(Constants.GetGameVersion());
+        internal static ISemanticVersion GameVersion { get; } = new GameVersion(Game1.version);
 
         /// <summary>The target game platform.</summary>
         internal static Platform Platform { get; } = EnvironmentUtility.DetectPlatform();
 
         /// <summary>The game's assembly name.</summary>
         internal static string GameAssemblyName => Constants.Platform == Platform.Windows ? "Stardew Valley" : "StardewValley";
+
+        /// <summary>The language code for non-translated mod assets.</summary>
+        internal static LocalizedContentManager.LanguageCode DefaultLanguage { get; } = LocalizedContentManager.LanguageCode.en;
 
 
         /*********
@@ -139,12 +142,14 @@ namespace StardewModdingAPI
                         "Microsoft.Xna.Framework",
                         "Microsoft.Xna.Framework.Game",
                         "Microsoft.Xna.Framework.Graphics",
-                        "Microsoft.Xna.Framework.Xact"
+                        "Microsoft.Xna.Framework.Xact",
+                        "StardewModdingAPI.Toolkit.CoreInterfaces" // renamed in SMAPI 3.0
                     };
                     targetAssemblies = new[]
                     {
                         typeof(StardewValley.Game1).Assembly, // note: includes Netcode types on Linux/Mac
-                        typeof(Microsoft.Xna.Framework.Vector2).Assembly
+                        typeof(Microsoft.Xna.Framework.Vector2).Assembly,
+                        typeof(StardewModdingAPI.IManifest).Assembly
                     };
                     break;
 
@@ -152,7 +157,8 @@ namespace StardewModdingAPI
                     removeAssemblyReferences = new[]
                     {
                         "StardewValley",
-                        "MonoGame.Framework"
+                        "MonoGame.Framework",
+                        "StardewModdingAPI.Toolkit.CoreInterfaces" // renamed in SMAPI 3.0
                     };
                     targetAssemblies = new[]
                     {
@@ -160,7 +166,8 @@ namespace StardewModdingAPI
                         typeof(StardewValley.Game1).Assembly,
                         typeof(Microsoft.Xna.Framework.Vector2).Assembly,
                         typeof(Microsoft.Xna.Framework.Game).Assembly,
-                        typeof(Microsoft.Xna.Framework.Graphics.SpriteBatch).Assembly
+                        typeof(Microsoft.Xna.Framework.Graphics.SpriteBatch).Assembly,
+                        typeof(StardewModdingAPI.IManifest).Assembly
                     };
                     break;
 
@@ -175,16 +182,6 @@ namespace StardewModdingAPI
         /*********
         ** Private methods
         *********/
-        /// <summary>Get the game's current version string.</summary>
-        private static string GetGameVersion()
-        {
-            // we need reflection because it's a constant, so SMAPI's references to it are inlined at compile-time
-            FieldInfo field = typeof(Game1).GetField(nameof(Game1.version), BindingFlags.Public | BindingFlags.Static);
-            if (field == null)
-                throw new InvalidOperationException($"The {nameof(Game1)}.{nameof(Game1.version)} field could not be found.");
-            return (string)field.GetValue(null);
-        }
-
         /// <summary>Get the name of the save folder, if any.</summary>
         internal static string GetSaveFolderName()
         {

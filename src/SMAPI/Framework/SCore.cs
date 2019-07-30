@@ -57,7 +57,7 @@ namespace StardewModdingAPI.Framework
         private readonly Monitor MonitorForGame;
 
         /// <summary>Tracks whether the game should exit immediately and any pending initialisation should be cancelled.</summary>
-        private readonly CancellationTokenSource CancellationTokenSource = new CancellationTokenSource();
+        private readonly CancellationTokenSource CancellationToken = new CancellationTokenSource();
 
         /// <summary>Simplifies access to private game code.</summary>
         private readonly Reflector Reflection = new Reflector();
@@ -146,7 +146,7 @@ namespace StardewModdingAPI.Framework
             // init basics
             this.Settings = JsonConvert.DeserializeObject<SConfig>(File.ReadAllText(Constants.ApiConfigPath));
             this.LogFile = new LogFileManager(logPath);
-            this.Monitor = new Monitor("SMAPI", this.ConsoleManager, this.LogFile, this.CancellationTokenSource, this.Settings.ColorScheme, this.Settings.VerboseLogging)
+            this.Monitor = new Monitor("SMAPI", this.ConsoleManager, this.LogFile, this.Settings.ColorScheme, this.Settings.VerboseLogging)
             {
                 WriteToConsole = writeToConsole,
                 ShowTraceInConsole = this.Settings.DeveloperMode,
@@ -162,7 +162,7 @@ namespace StardewModdingAPI.Framework
 
             // init logging
             this.Monitor.Log($"SMAPI {Constants.ApiVersion} with Stardew Valley {Constants.GameVersion} on {EnvironmentUtility.GetFriendlyPlatformName(Constants.Platform)}", LogLevel.Info);
-            this.Monitor.Log($"Mods go here: {modsPath}");
+            this.Monitor.Log($"Mods go here: {modsPath}", LogLevel.Info);
             if (modsPath != Constants.DefaultModsPath)
                 this.Monitor.Log("(Using custom --mods-path argument.)", LogLevel.Trace);
             this.Monitor.Log($"Log started at {DateTime.UtcNow:s} UTC", LogLevel.Trace);
@@ -210,22 +210,39 @@ namespace StardewModdingAPI.Framework
                 // add more leniant assembly resolvers
                 AppDomain.CurrentDomain.AssemblyResolve += (sender, e) => AssemblyLoader.ResolveAssembly(e.Name);
 
+                // hook locale event
+                LocalizedContentManager.OnLanguageChange += locale => this.OnLocaleChanged();
+
                 // override game
-                SGame.ConstructorHack = new SGameConstructorHack(this.Monitor, this.Reflection, this.Toolkit.JsonHelper);
-                this.GameInstance = new SGame(this.Monitor, this.MonitorForGame, this.Shaders, this.Reflection, this.EventManager, this.Toolkit.JsonHelper, this.ModRegistry, SCore.DeprecationManager, this.OnLocaleChanged, this.InitialiseAfterGameStart, this.Dispose);
+                SGame.ConstructorHack = new SGameConstructorHack(this.Monitor, this.Reflection, this.Toolkit.JsonHelper, this.InitialiseBeforeFirstAssetLoaded);
+                this.GameInstance = new SGame(
+                    monitor: this.Monitor,
+                    monitorForGame: this.MonitorForGame,
+                    shaders: this.Shaders,
+                    reflection: this.Reflection,
+                    eventManager: this.EventManager,
+                    jsonHelper: this.Toolkit.JsonHelper,
+                    modRegistry: this.ModRegistry,
+                    deprecationManager: SCore.DeprecationManager,
+                    onGameInitialised: this.InitialiseAfterGameStart,
+                    onGameExiting: this.Dispose,
+                    cancellationToken: this.CancellationToken,
+                    logNetworkTraffic: this.Settings.LogNetworkTraffic
+                );
                 StardewValley.Program.gamePtr = this.GameInstance;
 
                 // apply game patches
                 new GamePatcher(this.Monitor).Apply(
+                    new EventErrorPatch(this.MonitorForGame),
                     new DialogueErrorPatch(this.MonitorForGame, this.Reflection),
                     new ObjectErrorPatch(),
-                    new LoadForNewGamePatch(this.Reflection, this.GameInstance.OnLoadStageChanged)
+                    new LoadContextPatch(this.Reflection, this.GameInstance.OnLoadStageChanged)
                 );
 
                 // add exit handler
                 new Thread(() =>
                 {
-                    this.CancellationTokenSource.Token.WaitHandle.WaitOne();
+                    this.CancellationToken.Token.WaitHandle.WaitOne();
                     if (this.IsGameRunning)
                     {
                         try
@@ -235,7 +252,7 @@ namespace StardewModdingAPI.Framework
                         }
                         catch (Exception ex)
                         {
-                            this.Monitor.Log($"SMAPI failed trying to track the crash details: {ex.GetLogSummary()}");
+                            this.Monitor.Log($"SMAPI failed trying to track the crash details: {ex.GetLogSummary()}", LogLevel.Error);
                         }
 
                         this.GameInstance.Exit();
@@ -280,6 +297,19 @@ namespace StardewModdingAPI.Framework
                 File.Delete(Constants.FatalCrashLog);
                 File.Delete(Constants.FatalCrashMarker);
             }
+
+            // add headers
+            if (this.Settings.DeveloperMode)
+                this.Monitor.Log($"You have SMAPI for developers, so the console will be much more verbose. You can disable developer mode by installing the non-developer version of SMAPI, or by editing {Constants.ApiConfigPath}.", LogLevel.Info);
+            if (!this.Settings.CheckForUpdates)
+                this.Monitor.Log($"You configured SMAPI to not check for updates. Running an old version of SMAPI is not recommended. You can enable update checks by reinstalling SMAPI or editing {Constants.ApiConfigPath}.", LogLevel.Warn);
+            if (!this.Monitor.WriteToConsole)
+                this.Monitor.Log("Writing to the terminal is disabled because the --no-terminal argument was received. This usually means launching the terminal failed.", LogLevel.Warn);
+            this.Monitor.VerboseLog("Verbose logging enabled.");
+
+            // update window titles
+            this.GameInstance.Window.Title = $"Stardew Valley {Constants.GameVersion} - running SMAPI {Constants.ApiVersion}";
+            Console.Title = $"SMAPI {Constants.ApiVersion} - running Stardew Valley {Constants.GameVersion}";
 
             // start game
             this.Monitor.Log("Starting game...", LogLevel.Debug);
@@ -338,7 +368,7 @@ namespace StardewModdingAPI.Framework
             this.IsGameRunning = false;
             this.ConsoleManager?.Dispose();
             this.ContentCore?.Dispose();
-            this.CancellationTokenSource?.Dispose();
+            this.CancellationToken?.Dispose();
             this.GameInstance?.Dispose();
             this.LogFile?.Dispose();
 
@@ -350,21 +380,14 @@ namespace StardewModdingAPI.Framework
         /*********
         ** Private methods
         *********/
-        /// <summary>Initialise SMAPI and mods after the game starts.</summary>
-        private void InitialiseAfterGameStart()
+        /// <summary>Initialise mods before the first game asset is loaded. At this point the core content managers are loaded (so mods can load their own assets), but the game is mostly uninitialised.</summary>
+        private void InitialiseBeforeFirstAssetLoaded()
         {
-            // add headers
-            if (this.Settings.DeveloperMode)
-                this.Monitor.Log($"You have SMAPI for developers, so the console will be much more verbose. You can disable developer mode by installing the non-developer version of SMAPI, or by editing {Constants.ApiConfigPath}.", LogLevel.Info);
-            if (!this.Settings.CheckForUpdates)
-                this.Monitor.Log($"You configured SMAPI to not check for updates. Running an old version of SMAPI is not recommended. You can enable update checks by reinstalling SMAPI or editing {Constants.ApiConfigPath}.", LogLevel.Warn);
-            if (!this.Monitor.WriteToConsole)
-                this.Monitor.Log("Writing to the terminal is disabled because the --no-terminal argument was received. This usually means launching the terminal failed.", LogLevel.Warn);
-            this.Monitor.VerboseLog("Verbose logging enabled.");
-
-            // validate XNB integrity
-            if (!this.ValidateContentIntegrity())
-                this.Monitor.Log("SMAPI found problems in your game's content files which are likely to cause errors or crashes. Consider uninstalling XNB mods or reinstalling the game.", LogLevel.Error);
+            if (this.CancellationToken.IsCancellationRequested)
+            {
+                this.Monitor.Log("SMAPI shutting down: aborting initialisation.", LogLevel.Warn);
+                return;
+            }
 
             // load mod data
             ModToolkit toolkit = new ModToolkit();
@@ -380,7 +403,7 @@ namespace StardewModdingAPI.Framework
 
                 // filter out ignored mods
                 foreach (IModMetadata mod in mods.Where(p => p.IsIgnored))
-                    this.Monitor.Log($"  Skipped {mod.RelativeDirectoryPath} (folder name starts with a dot).", LogLevel.Trace);
+                    this.Monitor.Log($"  Skipped {mod.GetRelativePathWithRoot()} (folder name starts with a dot).", LogLevel.Trace);
                 mods = mods.Where(p => !p.IsIgnored).ToArray();
 
                 // load mods
@@ -405,16 +428,19 @@ namespace StardewModdingAPI.Framework
                 // check for updates
                 this.CheckForUpdatesAsync(mods);
             }
-            if (this.Monitor.IsExiting)
-            {
-                this.Monitor.Log("SMAPI shutting down: aborting initialisation.", LogLevel.Warn);
-                return;
-            }
 
             // update window titles
             int modsLoaded = this.ModRegistry.GetAll().Count();
             this.GameInstance.Window.Title = $"Stardew Valley {Constants.GameVersion} - running SMAPI {Constants.ApiVersion} with {modsLoaded} mods";
             Console.Title = $"SMAPI {Constants.ApiVersion} - running Stardew Valley {Constants.GameVersion} with {modsLoaded} mods";
+        }
+
+        /// <summary>Initialise SMAPI and mods after the game starts.</summary>
+        private void InitialiseAfterGameStart()
+        {
+            // validate XNB integrity
+            if (!this.ValidateContentIntegrity())
+                this.Monitor.Log("SMAPI found problems in your game's content files which are likely to cause errors or crashes. Consider uninstalling XNB mods or reinstalling the game.", LogLevel.Error);
 
             // start SMAPI console
             new Thread(this.RunConsoleLoop).Start();
@@ -423,13 +449,15 @@ namespace StardewModdingAPI.Framework
         /// <summary>Handle the game changing locale.</summary>
         private void OnLocaleChanged()
         {
+            this.ContentCore.OnLocaleChanged();
+
             // get locale
             string locale = this.ContentCore.GetLocale();
             LocalizedContentManager.LanguageCode languageCode = this.ContentCore.Language;
 
             // update mod translation helpers
-            foreach (IModMetadata mod in this.ModRegistry.GetAll(contentPacks: false))
-                (mod.Mod.Helper.Translation as TranslationHelper)?.SetLocale(locale, languageCode);
+            foreach (IModMetadata mod in this.ModRegistry.GetAll())
+                mod.Translations.SetLocale(locale, languageCode);
         }
 
         /// <summary>Run a loop handling console input.</summary>
@@ -459,7 +487,7 @@ namespace StardewModdingAPI.Framework
             inputThread.Start();
 
             // keep console thread alive while the game is running
-            while (this.IsGameRunning && !this.Monitor.IsExiting)
+            while (this.IsGameRunning && !this.CancellationToken.IsCancellationRequested)
                 Thread.Sleep(1000 / 10);
             if (inputThread.ThreadState == ThreadState.Running)
                 inputThread.Abort();
@@ -548,7 +576,7 @@ namespace StardewModdingAPI.Framework
                     if (latestStable == null && response.Errors.Any())
                     {
                         this.Monitor.Log("Couldn't check for a new version of SMAPI. This won't affect your game, but you may not be notified of new versions if this keeps happening.", LogLevel.Warn);
-                        this.Monitor.Log($"Error: {string.Join("\n", response.Errors)}");
+                        this.Monitor.Log($"Error: {string.Join("\n", response.Errors)}", LogLevel.Trace);
                     }
                     else if (this.IsValidUpdate(Constants.ApiVersion, latestBeta, this.Settings.UseBetaChannel))
                     {
@@ -568,7 +596,7 @@ namespace StardewModdingAPI.Framework
                     this.Monitor.Log("Couldn't check for a new version of SMAPI. This won't affect your game, but you won't be notified of new versions if this keeps happening.", LogLevel.Warn);
                     this.Monitor.Log(ex is WebException && ex.InnerException == null
                         ? $"Error: {ex.Message}"
-                        : $"Error: {ex.GetLogSummary()}"
+                        : $"Error: {ex.GetLogSummary()}", LogLevel.Trace
                     );
                 }
 
@@ -661,7 +689,7 @@ namespace StardewModdingAPI.Framework
                         this.Monitor.Log("Couldn't check for new mod versions. This won't affect your game, but you won't be notified of mod updates if this keeps happening.", LogLevel.Warn);
                         this.Monitor.Log(ex is WebException && ex.InnerException == null
                             ? ex.Message
-                            : ex.ToString()
+                            : ex.ToString(), LogLevel.Trace
                         );
                     }
                 }
@@ -726,8 +754,9 @@ namespace StardewModdingAPI.Framework
                         LogSkip(contentPack, errorPhrase, errorDetails);
                 }
             }
-            IModMetadata[] loadedContentPacks = this.ModRegistry.GetAll(assemblyMods: false).ToArray();
-            IModMetadata[] loadedMods = this.ModRegistry.GetAll(contentPacks: false).ToArray();
+            IModMetadata[] loaded = this.ModRegistry.GetAll().ToArray();
+            IModMetadata[] loadedContentPacks = loaded.Where(p => p.IsContentPack).ToArray();
+            IModMetadata[] loadedMods = loaded.Where(p => !p.IsContentPack).ToArray();
 
             // unlock content packs
             this.ModRegistry.AreAllModsLoaded = true;
@@ -767,10 +796,10 @@ namespace StardewModdingAPI.Framework
             }
 
             // log mod warnings
-            this.LogModWarnings(this.ModRegistry.GetAll().ToArray(), skippedMods);
+            this.LogModWarnings(loaded, skippedMods);
 
             // initialise translations
-            this.ReloadTranslations(loadedMods);
+            this.ReloadTranslations(loaded);
 
             // initialise loaded non-content-pack mods
             foreach (IModMetadata metadata in loadedMods)
@@ -876,13 +905,13 @@ namespace StardewModdingAPI.Framework
 
             // log entry
             {
-                string relativePath = PathUtilities.GetRelativePath(this.ModsPath, mod.DirectoryPath);
+                string relativePath = mod.GetRelativePathWithRoot();
                 if (mod.IsContentPack)
-                    this.Monitor.Log($"   {mod.DisplayName} ({relativePath}) [content pack]...", LogLevel.Trace);
+                    this.Monitor.Log($"   {mod.DisplayName} (from {relativePath}) [content pack]...", LogLevel.Trace);
                 else if (mod.Manifest?.EntryDll != null)
-                    this.Monitor.Log($"   {mod.DisplayName} ({relativePath}{Path.DirectorySeparatorChar}{mod.Manifest.EntryDll})...", LogLevel.Trace); // don't use Path.Combine here, since EntryDLL might not be valid
+                    this.Monitor.Log($"   {mod.DisplayName} (from {relativePath}{Path.DirectorySeparatorChar}{mod.Manifest.EntryDll})...", LogLevel.Trace); // don't use Path.Combine here, since EntryDLL might not be valid
                 else
-                    this.Monitor.Log($"   {mod.DisplayName} ({relativePath})...", LogLevel.Trace);
+                    this.Monitor.Log($"   {mod.DisplayName} (from {relativePath})...", LogLevel.Trace);
             }
 
             // add warning for missing update key
@@ -920,8 +949,9 @@ namespace StardewModdingAPI.Framework
                 IManifest manifest = mod.Manifest;
                 IMonitor monitor = this.GetSecondaryMonitor(mod.DisplayName);
                 IContentHelper contentHelper = new ContentHelper(this.ContentCore, mod.DirectoryPath, manifest.UniqueID, mod.DisplayName, monitor);
-                IContentPack contentPack = new ContentPack(mod.DirectoryPath, manifest, contentHelper, jsonHelper);
-                mod.SetMod(contentPack, monitor);
+                TranslationHelper translationHelper = new TranslationHelper(manifest.UniqueID, manifest.Name, contentCore.GetLocale(), contentCore.Language);
+                IContentPack contentPack = new ContentPack(mod.DirectoryPath, manifest, contentHelper, translationHelper, jsonHelper);
+                mod.SetMod(contentPack, monitor, translationHelper);
                 this.ModRegistry.Add(mod);
 
                 errorReasonPhrase = null;
@@ -983,6 +1013,7 @@ namespace StardewModdingAPI.Framework
 
                     // init mod helpers
                     IMonitor monitor = this.GetSecondaryMonitor(mod.DisplayName);
+                    TranslationHelper translationHelper = new TranslationHelper(manifest.UniqueID, manifest.Name, contentCore.GetLocale(), contentCore.Language);
                     IModHelper modHelper;
                     {
                         IModEvents events = new ModEvents(mod, this.EventManager);
@@ -993,13 +1024,13 @@ namespace StardewModdingAPI.Framework
                         IReflectionHelper reflectionHelper = new ReflectionHelper(manifest.UniqueID, mod.DisplayName, this.Reflection);
                         IModRegistry modRegistryHelper = new ModRegistryHelper(manifest.UniqueID, this.ModRegistry, proxyFactory, monitor);
                         IMultiplayerHelper multiplayerHelper = new MultiplayerHelper(manifest.UniqueID, this.GameInstance.Multiplayer);
-                        ITranslationHelper translationHelper = new TranslationHelper(manifest.UniqueID, manifest.Name, contentCore.GetLocale(), contentCore.Language);
 
                         IContentPack CreateFakeContentPack(string packDirPath, IManifest packManifest)
                         {
                             IMonitor packMonitor = this.GetSecondaryMonitor(packManifest.Name);
                             IContentHelper packContentHelper = new ContentHelper(contentCore, packDirPath, packManifest.UniqueID, packManifest.Name, packMonitor);
-                            return new ContentPack(packDirPath, packManifest, packContentHelper, this.Toolkit.JsonHelper);
+                            ITranslationHelper packTranslationHelper = new TranslationHelper(packManifest.UniqueID, packManifest.Name, contentCore.GetLocale(), contentCore.Language);
+                            return new ContentPack(packDirPath, packManifest, packContentHelper, packTranslationHelper, this.Toolkit.JsonHelper);
                         }
 
                         modHelper = new ModHelper(manifest.UniqueID, mod.DirectoryPath, this.GameInstance.Input, events, contentHelper, contentPackHelper, commandHelper, dataHelper, modRegistryHelper, reflectionHelper, multiplayerHelper, this.Shaders, translationHelper);
@@ -1012,7 +1043,7 @@ namespace StardewModdingAPI.Framework
                     modEntry.Shaders = this.Shaders;
 
                     // track mod
-                    mod.SetMod(modEntry);
+                    mod.SetMod(modEntry, translationHelper);
                     this.ModRegistry.Add(mod);
                     return true;
                 }
@@ -1027,7 +1058,7 @@ namespace StardewModdingAPI.Framework
         /// <summary>Write a summary of mod warnings to the console and log.</summary>
         /// <param name="mods">The loaded mods.</param>
         /// <param name="skippedMods">The mods which were skipped, along with the friendly and developer reasons.</param>
-        private void LogModWarnings(IModMetadata[] mods, IDictionary<IModMetadata, Tuple<string, string>> skippedMods)
+        private void LogModWarnings(IEnumerable<IModMetadata> mods, IDictionary<IModMetadata, Tuple<string, string>> skippedMods)
         {
             // get mods with warnings
             IModMetadata[] modsWithWarnings = mods.Where(p => p.Warnings != ModWarning.None).ToArray();
@@ -1072,7 +1103,9 @@ namespace StardewModdingAPI.Framework
                 // issue block format logic
                 void LogWarningGroup(ModWarning warning, LogLevel logLevel, string heading, params string[] blurb)
                 {
-                    IModMetadata[] matches = modsWithWarnings.Where(p => p.Warnings.HasFlag(warning)).ToArray();
+                    IModMetadata[] matches = modsWithWarnings
+                        .Where(mod => mod.HasUnsuppressWarning(warning))
+                        .ToArray();
                     if (!matches.Any())
                         return;
 
@@ -1165,9 +1198,6 @@ namespace StardewModdingAPI.Framework
             JsonHelper jsonHelper = this.Toolkit.JsonHelper;
             foreach (IModMetadata metadata in mods)
             {
-                if (metadata.IsContentPack)
-                    throw new InvalidOperationException("Can't reload translations for a content pack.");
-
                 // read translation files
                 IDictionary<string, IDictionary<string, string>> translations = new Dictionary<string, IDictionary<string, string>>();
                 DirectoryInfo translationsDir = new DirectoryInfo(Path.Combine(metadata.DirectoryPath, "i18n"));
@@ -1217,8 +1247,7 @@ namespace StardewModdingAPI.Framework
                 }
 
                 // update translation
-                TranslationHelper translationHelper = (TranslationHelper)metadata.Mod.Helper.Translation;
-                translationHelper.SetTranslations(translations);
+                metadata.Translations.SetTranslations(translations);
             }
         }
 
@@ -1313,7 +1342,7 @@ namespace StardewModdingAPI.Framework
         /// <param name="name">The name of the module which will log messages with this instance.</param>
         private Monitor GetSecondaryMonitor(string name)
         {
-            return new Monitor(name, this.ConsoleManager, this.LogFile, this.CancellationTokenSource, this.Settings.ColorScheme, this.Settings.VerboseLogging)
+            return new Monitor(name, this.ConsoleManager, this.LogFile, this.Settings.ColorScheme, this.Settings.VerboseLogging)
             {
                 WriteToConsole = this.Monitor.WriteToConsole,
                 ShowTraceInConsole = this.Settings.DeveloperMode,

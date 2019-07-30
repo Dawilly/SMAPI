@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using StardewModdingAPI.Toolkit.Framework.Clients.Wiki;
@@ -31,17 +32,17 @@ namespace StardewModdingAPI.Web.ViewModels
         /// <summary>The compatibility status for the beta version of the game.</summary>
         public ModCompatibilityModel BetaCompatibility { get; set; }
 
-        /// <summary>Whether the mod is ready for the upcoming SMAPI 3.0.</summary>
-        public string Smapi3Status { get; set; }
-
-        /// <summary>A URL related to the <see cref="Smapi3Status"/>.</summary>
-        public string Smapi3Url { get; set; }
-
         /// <summary>Links to the available mod pages.</summary>
         public ModLinkModel[] ModPages { get; set; }
 
         /// <summary>The human-readable warnings for players about this mod.</summary>
         public string[] Warnings { get; set; }
+
+        /// <summary>Extra metadata links (usually for open pull requests).</summary>
+        public Tuple<Uri, string>[] MetadataLinks { get; set; }
+
+        /// <summary>Special notes intended for developers who maintain unofficial updates or submit pull requests. </summary>
+        public string DevNote { get; set; }
 
         /// <summary>A unique identifier for the mod that can be used in an anchor URL.</summary>
         public string Slug { get; set; }
@@ -65,10 +66,10 @@ namespace StardewModdingAPI.Web.ViewModels
             this.SourceUrl = this.GetSourceUrl(entry);
             this.Compatibility = new ModCompatibilityModel(entry.Compatibility);
             this.BetaCompatibility = entry.BetaCompatibility != null ? new ModCompatibilityModel(entry.BetaCompatibility) : null;
-            this.Smapi3Status = entry.Smapi3Status.ToString().ToLower();
-            this.Smapi3Url = entry.Smapi3Url;
             this.ModPages = this.GetModPageUrls(entry).ToArray();
             this.Warnings = entry.Warnings;
+            this.MetadataLinks = entry.MetadataLinks;
+            this.DevNote = entry.DevNote;
             this.Slug = entry.Anchor;
         }
 

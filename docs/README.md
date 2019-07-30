@@ -38,16 +38,16 @@ doesn't change any of your game files. It serves eight main purposes:
    something goes wrong. (Via the bundled SaveBackup mod.)_
 
 ## Documentation
-Have questions? Come [chat on Discord](https://discord.gg/KCJHWhX) with SMAPI developers and other
-modders!
+Have questions? Come [chat on Discord](https://stardewvalleywiki.com/Modding:Community) with SMAPI
+developers and other modders!
 
 ### For players
 * [Player guide](https://stardewvalleywiki.com/Modding:Player_Guide)
 
 ### For modders
 * [Modding documentation](https://stardewvalleywiki.com/Modding:Index)
-* [Mod build configuration](mod-build-config.md)
+* [Mod build configuration](technical/mod-package.md)
 * [Release notes](release-notes.md)
 
 ### For SMAPI developers
-* [Technical docs](technical-docs.md)
+* [Technical docs](technical/smapi.md)

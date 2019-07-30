@@ -1,8 +1,11 @@
+&larr; [README](README.md)
+
 # Release notes
 ## 3.0 (upcoming release)
 These changes have not been released yet.
 
 * For players:
+<<<<<<< HEAD
   * Fixed Save Backup not pruning old backups if they're uncompressed.
   * Fixed issues when a farmhand reconnects before the game notices they're disconnected.
 
@@ -10,6 +13,90 @@ These changes have not been released yet.
   * Added `IContentPack.HasFile` method.
   * Dropped support for all deprecated APIs.
   * Updated to Json.NET 12.0.1.
+=======
+  * Updated for Stardew Valley 1.4.
+  * Improved performance.
+  * SMAPI now prevents invalid items from breaking menus on hover.
+  * SMAPI now prevents invalid event preconditions from crashing the game (thanks to berkayylmao!).
+  * SMAPI now prevents more invalid dialogues from crashing the game.
+  * Rewrote launch script on Linux to improve compatibility (thanks to kurumushi and toastal!).
+  * Improved mod scanning:
+    * Now ignores metadata files/folders like `__MACOSX` and `__folder_managed_by_vortex`.
+    * Now ignores content files like `.txt` or `.png`, which avoids missing-manifest errors in some common cases.
+    * Now detects XNB mods more accurately, and consolidates multi-folder XNB mods.
+  * Save Backup now works in the background, to avoid affecting startup time for players with a large number of saves.
+  * Duplicate-mod errors now show the mod version in each folder.
+  * Updated mod compatibility list.
+  * Fixed mods needing to load custom `Map` assets before the game accesses them (SMAPI will now do so automatically).
+  * Fixed Save Backup not pruning old backups if they're uncompressed.
+  * Fixed issues when a farmhand reconnects before the game notices they're disconnected.
+  * Fixed 'received message' logs shown in non-developer mode.
+  * Fixed errors during early startup not shown before exit.
+  * Fixed some assets not updated when you switch language to English.
+  * Fixed lag in some cases due to incorrect asset caching when playing in non-English.
+  * Fixed lag when a mod invalidates many NPC portraits/sprites at once.
+  * Fixed map reloads resetting tilesheet seasons.
+  * Fixed map reloads not updating door warps.
+  * Fixed outdoor tilesheets being seasonalised when added to an indoor location.
+  * Fixed update checks failing for Nexus mods marked as adult content.
+  * Fixed update checks not recognising releases on GitHub if they're not explicitly listed as update keys.
+
+* For the mod compatibility list:
+  * Now loads faster (since data is fetched in a background service).
+  * Now continues working with cached data when the wiki is offline.
+  * Clicking a mod link now automatically adds it to the visible mods when the list is filtered.
+  * Added metadata links and dev notes (if any) to advanced info.
+
+* For the log parser:
+  * Added instructions for Android.
+  * Fixed parse failing in some cases due to time format localisation.
+
+* For modders:
+  * Mods are now loaded much earlier in the game launch. This lets mods intercept any content asset, but the game is not fully initialised when `Entry` is called (use the `GameLaunched` event if you need to run code when the game is initialised).
+  * Added support for content pack translations.
+  * Added fields and methods: `IContentPack.HasFile`, `Context.IsGameLaunched`, and `SemanticVersion.TryParse`.
+  * Added separate `LogNetworkTraffic` option to make verbose logging less overwhelmingly verbose.
+  * Added asset propagation for critter textures and `DayTimeMoneyBox` buttons.
+  * `this.Monitor.Log` now defaults to the `Trace` log level instead of `Debug`.
+  * The installer now recognises custom game paths stored in `stardewvalley.targets`, if any.
+  * Trace logs for a broken mod now list all detected issues (instead of the first one).
+  * Trace logs when loading mods are now more clear.
+  * Clarified update-check errors for mods with multiple update keys.
+  * Fixed custom maps loaded from `.xnb` files not having their tilesheet paths automatically adjusted.
+  * Fixed custom maps loaded from the mod folder with tilesheets in a subfolder not working crossplatform. All tilesheet paths are now normalised for the OS automatically.
+  * Removed all deprecated APIs.
+  * Removed the `Monitor.ExitGameImmediately` method.
+  * Updated dependencies (including Json.NET 11.0.2 → 12.0.2, Mono.Cecil 0.10.1 → 0.10.4).
+  * Fixed issue where mod changes weren't tracked correctly for raising events in some cases. Events now reflect a frozen snapshot of the game state, and any mod changes are reflected in the next event tick.
+  * Fixed `LoadStageChanged` event not raising correct flags in some cases when creating a new save.
+  * Fixed 'location list changed' verbose log not correctly listing changes.
+  * Fixed mods able to directly load (and in some cases edit) a different mod's local assets using internal asset key forwarding.
+  * Fixed changes to a map loaded by a mod being persisted across content managers.
+  * Fixed `SDate.AddDays` incorrectly changing year when the result is exactly winter 28.
+
+## 2.11.2
+Released 23 April 2019 for Stardew Valley 1.3.36.
+
+* For players:
+  * Fixed error when a custom map references certain vanilla tilesheets on Linux/Mac.
+  * Fixed compatibility with some Linux distros.
+
+## 2.11.1
+Released 17 March 2019 for Stardew Valley 1.3.36.
+
+* For players:
+  * Added crops option to `world_clear` console command.
+  * Prepared compatibility check for Stardew Valley 1.4.
+  * Updated mod compatibility list.
+  * Fixed `world_clear` console command removing chests edited to have a debris name.
+
+* For modders:
+  * Added support for suppressing false-positive warnings in rare cases.
+
+* For the web UI:
+  * The log parser now collapses redundant sections by default.
+  * Fixed log parser column resize bug.
+>>>>>>> upstream/develop
 
 ## 2.11
 Released 01 March 2019 for Stardew Valley 1.3.36.
@@ -604,7 +691,7 @@ Released 14 October 2017 for Stardew Valley 1.2.30–1.2.33.
 
 * **Command-line install**
   For power users and mod managers, the SMAPI installer can now be scripted using command-line arguments
-  (see [technical docs](technical-docs.md#command-line-arguments)).
+  (see [technical docs](technical/smapi.md#command-line-arguments)).
 
 ### Change log
 For players:

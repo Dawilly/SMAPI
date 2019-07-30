@@ -36,8 +36,14 @@ namespace StardewModdingAPI.Framework
         /// <summary>Encapsulates SMAPI's JSON file parsing.</summary>
         private readonly JsonHelper JsonHelper;
 
+        /// <summary>A callback to invoke the first time *any* game content manager loads an asset.</summary>
+        private readonly Action OnLoadingFirstAsset;
+
         /// <summary>The loaded content managers (including the <see cref="MainContentManager"/>).</summary>
         private readonly IList<IContentManager> ContentManagers = new List<IContentManager>();
+
+        /// <summary>The language code for language-agnostic mod assets.</summary>
+        private readonly LocalizedContentManager.LanguageCode DefaultLanguage = Constants.DefaultLanguage;
 
         /// <summary>Whether the content coordinator has been disposed.</summary>
         private bool IsDisposed;
@@ -72,14 +78,16 @@ namespace StardewModdingAPI.Framework
         /// <param name="monitor">Encapsulates monitoring and logging.</param>
         /// <param name="reflection">Simplifies access to private code.</param>
         /// <param name="jsonHelper">Encapsulates SMAPI's JSON file parsing.</param>
-        public ContentCoordinator(IServiceProvider serviceProvider, string rootDirectory, CultureInfo currentCulture, IMonitor monitor, Reflector reflection, JsonHelper jsonHelper)
+        /// <param name="onLoadingFirstAsset">A callback to invoke the first time *any* game content manager loads an asset.</param>
+        public ContentCoordinator(IServiceProvider serviceProvider, string rootDirectory, CultureInfo currentCulture, IMonitor monitor, Reflector reflection, JsonHelper jsonHelper, Action onLoadingFirstAsset)
         {
             this.Monitor = monitor ?? throw new ArgumentNullException(nameof(monitor));
             this.Reflection = reflection;
             this.JsonHelper = jsonHelper;
+            this.OnLoadingFirstAsset = onLoadingFirstAsset;
             this.FullRootDirectory = Path.Combine(Constants.ExecutionPath, rootDirectory);
             this.ContentManagers.Add(
-                this.MainContentManager = new GameContentManager("Game1.content", serviceProvider, rootDirectory, currentCulture, this, monitor, reflection, this.OnDisposing)
+                this.MainContentManager = new GameContentManager("Game1.content", serviceProvider, rootDirectory, currentCulture, this, monitor, reflection, this.OnDisposing, onLoadingFirstAsset)
             );
             this.CoreAssets = new CoreAssetPropagator(this.MainContentManager.AssertAndNormaliseAssetName, reflection, monitor);
         }
@@ -88,7 +96,7 @@ namespace StardewModdingAPI.Framework
         /// <param name="name">A name for the mod manager. Not guaranteed to be unique.</param>
         public GameContentManager CreateGameContentManager(string name)
         {
-            GameContentManager manager = new GameContentManager(name, this.MainContentManager.ServiceProvider, this.MainContentManager.RootDirectory, this.MainContentManager.CurrentCulture, this, this.Monitor, this.Reflection, this.OnDisposing);
+            GameContentManager manager = new GameContentManager(name, this.MainContentManager.ServiceProvider, this.MainContentManager.RootDirectory, this.MainContentManager.CurrentCulture, this, this.Monitor, this.Reflection, this.OnDisposing, this.OnLoadingFirstAsset);
             this.ContentManagers.Add(manager);
             return manager;
         }
@@ -96,9 +104,21 @@ namespace StardewModdingAPI.Framework
         /// <summary>Get a new content manager which handles reading files from a SMAPI mod folder with support for unpacked files.</summary>
         /// <param name="name">A name for the mod manager. Not guaranteed to be unique.</param>
         /// <param name="rootDirectory">The root directory to search for content (or <c>null</c> for the default).</param>
-        public ModContentManager CreateModContentManager(string name, string rootDirectory)
+        /// <param name="gameContentManager">The game content manager used for map tilesheets not provided by the mod.</param>
+        public ModContentManager CreateModContentManager(string name, string rootDirectory, IContentManager gameContentManager)
         {
-            ModContentManager manager = new ModContentManager(name, this.MainContentManager.ServiceProvider, rootDirectory, this.MainContentManager.CurrentCulture, this, this.Monitor, this.Reflection, this.JsonHelper, this.OnDisposing);
+            ModContentManager manager = new ModContentManager(
+                name: name,
+                gameContentManager: gameContentManager,
+                serviceProvider: this.MainContentManager.ServiceProvider,
+                rootDirectory: rootDirectory,
+                currentCulture: this.MainContentManager.CurrentCulture,
+                coordinator: this,
+                monitor: this.Monitor,
+                reflection: this.Reflection,
+                jsonHelper: this.JsonHelper,
+                onDisposing: this.OnDisposing
+            );
             this.ContentManagers.Add(manager);
             return manager;
         }
@@ -107,6 +127,13 @@ namespace StardewModdingAPI.Framework
         public string GetLocale()
         {
             return this.MainContentManager.GetLocale(LocalizedContentManager.CurrentLanguageCode);
+        }
+
+        /// <summary>Perform any cleanup needed when the locale changes.</summary>
+        public void OnLocaleChanged()
+        {
+            foreach (IContentManager contentManager in this.ContentManagers)
+                contentManager.OnLocaleChanged();
         }
 
         /// <summary>Get whether this asset is mapped to a mod folder.</summary>
@@ -148,20 +175,17 @@ namespace StardewModdingAPI.Framework
 
         /// <summary>Get a copy of an asset from a mod folder.</summary>
         /// <typeparam name="T">The asset type.</typeparam>
-        /// <param name="internalKey">The internal asset key.</param>
         /// <param name="contentManagerID">The unique name for the content manager which should load this asset.</param>
         /// <param name="relativePath">The internal SMAPI asset key.</param>
-        /// <param name="language">The language code for which to load content.</param>
-        public T LoadAndCloneManagedAsset<T>(string internalKey, string contentManagerID, string relativePath, LocalizedContentManager.LanguageCode language)
+        public T LoadManagedAsset<T>(string contentManagerID, string relativePath)
         {
             // get content manager
-            IContentManager contentManager = this.ContentManagers.FirstOrDefault(p => p.Name == contentManagerID);
+            IContentManager contentManager = this.ContentManagers.FirstOrDefault(p => p.IsNamespaced && p.Name == contentManagerID);
             if (contentManager == null)
                 throw new InvalidOperationException($"The '{contentManagerID}' prefix isn't handled by any mod.");
 
-            // get cloned asset
-            T data = contentManager.Load<T>(internalKey, language);
-            return contentManager.CloneIfPossible(data);
+            // get fresh asset
+            return contentManager.Load<T>(relativePath, this.DefaultLanguage, useCache: false);
         }
 
         /// <summary>Purge assets from the cache that match one of the interceptors.</summary>
@@ -246,14 +270,7 @@ namespace StardewModdingAPI.Framework
             }
 
             // reload core game assets
-            int reloaded = 0;
-            foreach (var pair in removedAssetNames)
-            {
-                string key = pair.Key;
-                Type type = pair.Value;
-                if (this.CoreAssets.Propagate(this.MainContentManager, key, type)) // use an intercepted content manager
-                    reloaded++;
-            }
+            int reloaded = this.CoreAssets.Propagate(this.MainContentManager, removedAssetNames); // use an intercepted content manager
 
             // report result
             if (removedAssetNames.Any())

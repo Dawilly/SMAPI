@@ -38,13 +38,13 @@ namespace StardewModdingAPI.Framework.ModLoading
                 }
 
                 // build metadata
-                ModMetadataStatus status = folder.ManifestParseError == null || !folder.ShouldBeLoaded
+                bool shouldIgnore = folder.Type == ModType.Ignored;
+                ModMetadataStatus status = folder.ManifestParseError == ModParseError.None || shouldIgnore
                     ? ModMetadataStatus.Found
                     : ModMetadataStatus.Failed;
-                string relativePath = PathUtilities.GetRelativePath(rootPath, folder.Directory.FullName);
 
-                yield return new ModMetadata(folder.DisplayName, folder.Directory.FullName, relativePath, manifest, dataRecord, isIgnored: !folder.ShouldBeLoaded)
-                    .SetStatus(status, !folder.ShouldBeLoaded ? "disabled by dot convention" : folder.ManifestParseError);
+                yield return new ModMetadata(folder.DisplayName, folder.Directory.FullName, rootPath, manifest, dataRecord, isIgnored: shouldIgnore)
+                    .SetStatus(status, shouldIgnore ? "disabled by dot convention" : folder.ManifestParseErrorText);
             }
         }
 
@@ -198,7 +198,14 @@ namespace StardewModdingAPI.Framework.ModLoading
                     {
                         if (mod.Status == ModMetadataStatus.Failed)
                             continue; // don't replace metadata error
-                        mod.SetStatus(ModMetadataStatus.Failed, $"you have multiple copies of this mod installed ({string.Join(", ", group.Select(p => p.RelativeDirectoryPath).OrderBy(p => p))}).");
+
+                        string folderList = string.Join(", ",
+                            from entry in @group
+                            let relativePath = entry.GetRelativePathWithRoot()
+                            orderby relativePath
+                            select $"{relativePath} ({entry.Manifest.Version})"
+                        );
+                        mod.SetStatus(ModMetadataStatus.Failed, $"you have multiple copies of this mod installed. Found in folders: {folderList}.");
                     }
                 }
             }

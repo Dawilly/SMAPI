@@ -34,6 +34,9 @@ namespace StardewModdingAPI.Framework.Models
         /// <summary>Whether SMAPI should log more information about the game context.</summary>
         public bool VerboseLogging { get; set; }
 
+        /// <summary>Whether SMAPI should log network traffic. Best combined with <see cref="VerboseLogging"/>, which includes network metadata.</summary>
+        public bool LogNetworkTraffic { get; set; }
+
         /// <summary>Whether to generate a file in the mods folder with detailed metadata about the detected mods.</summary>
         public bool DumpMetadata { get; set; }
 

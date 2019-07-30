@@ -16,7 +16,7 @@ namespace StardewModdingAPI.Mods.ConsoleCommands.Framework.Commands.World
         ** Fields
         *********/
         /// <summary>The valid types that can be cleared.</summary>
-        private readonly string[] ValidTypes = { "debris", "fruit-trees", "grass", "trees", "everything" };
+        private readonly string[] ValidTypes = { "crops", "debris", "fruit-trees", "grass", "trees", "everything" };
 
         /// <summary>The resource clump IDs to consider debris.</summary>
         private readonly int[] DebrisClumps = { ResourceClump.stumpIndex, ResourceClump.hollowLogIndex, ResourceClump.meteoriteIndex, ResourceClump.boulderIndex };
@@ -32,7 +32,7 @@ namespace StardewModdingAPI.Mods.ConsoleCommands.Framework.Commands.World
                 description: "Clears in-game entities in a given location.\n\n"
                     + "Usage: world_clear <location> <object type>\n"
                     + "- location: the location name for which to clear objects (like Farm), or 'current' for the current location.\n"
-                    + " - object type: the type of object clear. You can specify 'debris' (stones/twigs/weeds and dead crops), 'grass', and 'trees' / 'fruit-trees'. You can also specify 'everything', which includes things not removed by the other types (like furniture or resource clumps)."
+                    + " - object type: the type of object clear. You can specify 'crops', 'debris' (stones/twigs/weeds and dead crops), 'grass', and 'trees' / 'fruit-trees'. You can also specify 'everything', which includes things not removed by the other types (like furniture or resource clumps)."
             )
         { }
 
@@ -69,6 +69,15 @@ namespace StardewModdingAPI.Mods.ConsoleCommands.Framework.Commands.World
             // apply
             switch (type)
             {
+                case "crops":
+                    {
+                        int removed =
+                            this.RemoveTerrainFeatures(location, p => p is HoeDirt)
+                            + this.RemoveResourceClumps(location, p => p is GiantCrop);
+                        monitor.Log($"Done! Removed {removed} entities from {location.Name}.", LogLevel.Info);
+                        break;
+                    }
+
                 case "debris":
                     {
                         int removed = 0;
@@ -83,7 +92,14 @@ namespace StardewModdingAPI.Mods.ConsoleCommands.Framework.Commands.World
                         }
 
                         removed +=
-                            this.RemoveObjects(location, obj => obj.Name.ToLower().Contains("weed") || obj.Name == "Twig" || obj.Name == "Stone")
+                            this.RemoveObjects(location, obj =>
+                                !(obj is Chest)
+                                && (
+                                    obj.Name == "Weeds"
+                                    || obj.Name == "Stone"
+                                    || (obj.ParentSheetIndex == 294 || obj.ParentSheetIndex == 295)
+                                )
+                            )
                             + this.RemoveResourceClumps(location, clump => this.DebrisClumps.Contains(clump.parentSheetIndex.Value));
 
                         monitor.Log($"Done! Removed {removed} entities from {location.Name}.", LogLevel.Info);

@@ -5,7 +5,6 @@ using StardewModdingAPI.Enums;
 using StardewModdingAPI.Events;
 using StardewModdingAPI.Framework.StateTracking.FieldWatchers;
 using StardewValley;
-using StardewValley.Locations;
 using ChangeType = StardewModdingAPI.Events.ChangeType;
 
 namespace StardewModdingAPI.Framework.StateTracking
@@ -38,9 +37,6 @@ namespace StardewModdingAPI.Framework.StateTracking
         /// <summary>The player's current location.</summary>
         public IValueWatcher<GameLocation> LocationWatcher { get; }
 
-        /// <summary>The player's current mine level.</summary>
-        public IValueWatcher<int> MineLevelWatcher { get; }
-
         /// <summary>Tracks changes to the player's skill levels.</summary>
         public IDictionary<SkillType, IValueWatcher<int>> SkillWatchers { get; }
 
@@ -58,7 +54,6 @@ namespace StardewModdingAPI.Framework.StateTracking
 
             // init trackers
             this.LocationWatcher = WatcherFactory.ForReference(this.GetCurrentLocation);
-            this.MineLevelWatcher = WatcherFactory.ForEquatable(() => this.LastValidLocation is MineShaft mine ? mine.mineLevel : 0);
             this.SkillWatchers = new Dictionary<SkillType, IValueWatcher<int>>
             {
                 [SkillType.Combat] = WatcherFactory.ForNetValue(player.combatLevel),
@@ -70,11 +65,7 @@ namespace StardewModdingAPI.Framework.StateTracking
             };
 
             // track watchers for convenience
-            this.Watchers.AddRange(new IWatcher[]
-            {
-                this.LocationWatcher,
-                this.MineLevelWatcher
-            });
+            this.Watchers.Add(this.LocationWatcher);
             this.Watchers.AddRange(this.SkillWatchers.Values);
         }
 
@@ -122,30 +113,6 @@ namespace StardewModdingAPI.Framework.StateTracking
                 else if (prevStack != newStack)
                     yield return new ItemStackChange { Item = item, StackChange = newStack - prevStack, ChangeType = ChangeType.StackChange };
             }
-        }
-
-        /// <summary>Get the player skill levels which changed.</summary>
-        public IEnumerable<KeyValuePair<SkillType, IValueWatcher<int>>> GetChangedSkills()
-        {
-            return this.SkillWatchers.Where(p => p.Value.IsChanged);
-        }
-
-        /// <summary>Get the player's new location if it changed.</summary>
-        /// <param name="location">The player's current location.</param>
-        /// <returns>Returns whether it changed.</returns>
-        public bool TryGetNewLocation(out GameLocation location)
-        {
-            location = this.LocationWatcher.CurrentValue;
-            return this.LocationWatcher.IsChanged;
-        }
-
-        /// <summary>Get the player's new mine level if it changed.</summary>
-        /// <param name="mineLevel">The player's current mine level.</param>
-        /// <returns>Returns whether it changed.</returns>
-        public bool TryGetNewMineLevel(out int mineLevel)
-        {
-            mineLevel = this.MineLevelWatcher.CurrentValue;
-            return this.MineLevelWatcher.IsChanged;
         }
 
         /// <summary>Stop watching the player fields and release all references.</summary>

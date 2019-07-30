@@ -1,4 +1,4 @@
-using StardewModdingAPI.Internal;
+using StardewModdingAPI.Toolkit.Utilities;
 
 namespace StardewModdingAPI
 {

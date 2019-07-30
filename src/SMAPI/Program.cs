@@ -7,7 +7,7 @@ using System.Threading;
 #if SMAPI_FOR_WINDOWS
 #endif
 using StardewModdingAPI.Framework;
-using StardewModdingAPI.Internal;
+using StardewModdingAPI.Toolkit.Utilities;
 
 namespace StardewModdingAPI
 {
@@ -30,10 +30,18 @@ namespace StardewModdingAPI
         /// <param name="args">The command-line arguments.</param>
         public static void Main(string[] args)
         {
-            AppDomain.CurrentDomain.AssemblyResolve += Program.CurrentDomain_AssemblyResolve;
-            Program.AssertGamePresent();
-            Program.AssertGameVersion();
-            Program.Start(args);
+            try
+            {
+                AppDomain.CurrentDomain.AssemblyResolve += Program.CurrentDomain_AssemblyResolve;
+                Program.AssertGamePresent();
+                Program.AssertGameVersion();
+                Program.Start(args);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"SMAPI failed to initialise: {ex}");
+                Program.PressAnyKeyToExit(true);
+            }
         }
 
 

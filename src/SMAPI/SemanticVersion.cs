@@ -141,7 +141,7 @@ namespace StardewModdingAPI
         /// <param name="version">The version string.</param>
         /// <param name="parsed">The parsed representation.</param>
         /// <returns>Returns whether parsing the version succeeded.</returns>
-        internal static bool TryParse(string version, out ISemanticVersion parsed)
+        public static bool TryParse(string version, out ISemanticVersion parsed)
         {
             if (Toolkit.SemanticVersion.TryParse(version, out ISemanticVersion versionImpl))
             {

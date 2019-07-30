@@ -27,7 +27,7 @@ namespace StardewModdingAPI.Tests.Core
         public void ReadBasicManifest_NoMods_ReturnsEmptyList()
         {
             // arrange
-            string rootFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            string rootFolder = this.GetTempFolderPath();
             Directory.CreateDirectory(rootFolder);
 
             // act
@@ -41,7 +41,7 @@ namespace StardewModdingAPI.Tests.Core
         public void ReadBasicManifest_EmptyModFolder_ReturnsFailedManifest()
         {
             // arrange
-            string rootFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            string rootFolder = this.GetTempFolderPath();
             string modFolder = Path.Combine(rootFolder, Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(modFolder);
 
@@ -78,7 +78,7 @@ namespace StardewModdingAPI.Tests.Core
             };
 
             // write to filesystem
-            string rootFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            string rootFolder = this.GetTempFolderPath();
             string modFolder = Path.Combine(rootFolder, Guid.NewGuid().ToString("N"));
             string filename = Path.Combine(modFolder, "manifest.json");
             Directory.CreateDirectory(modFolder);
@@ -209,7 +209,7 @@ namespace StardewModdingAPI.Tests.Core
             IManifest manifest = this.GetManifest();
 
             // create DLL
-            string modFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            string modFolder = Path.Combine(this.GetTempFolderPath(), Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(modFolder);
             File.WriteAllText(Path.Combine(modFolder, manifest.EntryDll), "");
 
@@ -462,6 +462,12 @@ namespace StardewModdingAPI.Tests.Core
         /*********
         ** Private methods
         *********/
+        /// <summary>Get a generated folder path in the temp folder. This folder isn't created automatically.</summary>
+        private string GetTempFolderPath()
+        {
+            return Path.Combine(Path.GetTempPath(), "smapi-unit-tests", Guid.NewGuid().ToString("N"));
+        }
+
         /// <summary>Get a randomised basic manifest.</summary>
         /// <param name="id">The <see cref="IManifest.UniqueID"/> value, or <c>null</c> for a generated value.</param>
         /// <param name="name">The <see cref="IManifest.Name"/> value, or <c>null</c> for a generated value.</param>

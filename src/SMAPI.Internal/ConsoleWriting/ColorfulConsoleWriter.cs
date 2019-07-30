@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using StardewModdingAPI.Toolkit.Utilities;
 
 namespace StardewModdingAPI.Internal.ConsoleWriting
 {

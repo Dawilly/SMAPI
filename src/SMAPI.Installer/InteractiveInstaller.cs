@@ -7,7 +7,6 @@ using System.Threading;
 using Microsoft.Win32;
 using StardewModdingApi.Installer.Enums;
 using StardewModdingAPI.Installer.Framework;
-using StardewModdingAPI.Internal;
 using StardewModdingAPI.Internal.ConsoleWriting;
 using StardewModdingAPI.Toolkit;
 using StardewModdingAPI.Toolkit.Framework.ModScanning;
@@ -37,64 +36,7 @@ namespace StardewModdingApi.Installer
             "SMAPI.ConsoleCommands"
         };
 
-        /// <summary>The default file paths where Stardew Valley can be installed.</summary>
-        /// <param name="platform">The target platform.</param>
-        /// <remarks>Derived from the crossplatform mod config: https://github.com/Pathoschild/Stardew.ModBuildConfig. </remarks>
-        private IEnumerable<string> GetDefaultInstallPaths(Platform platform)
-        {
-            switch (platform)
-            {
-                case Platform.Linux:
-                case Platform.Mac:
-                    {
-                        string home = Environment.GetEnvironmentVariable("HOME");
 
-                        // Linux
-                        yield return $"{home}/GOG Games/Stardew Valley/game";
-                        yield return Directory.Exists($"{home}/.steam/steam/steamapps/common/Stardew Valley")
-                            ? $"{home}/.steam/steam/steamapps/common/Stardew Valley"
-                            : $"{home}/.local/share/Steam/steamapps/common/Stardew Valley";
-
-                        // Mac
-                        yield return "/Applications/Stardew Valley.app/Contents/MacOS";
-                        yield return $"{home}/Library/Application Support/Steam/steamapps/common/Stardew Valley/Contents/MacOS";
-                    }
-                    break;
-
-                case Platform.Windows:
-                    {
-                        // Windows
-                        foreach (string programFiles in new[] { @"C:\Program Files", @"C:\Program Files (x86)" })
-                        {
-                            yield return $@"{programFiles}\GalaxyClient\Games\Stardew Valley";
-                            yield return $@"{programFiles}\GOG Galaxy\Games\Stardew Valley";
-                            yield return $@"{programFiles}\Steam\steamapps\common\Stardew Valley";
-                        }
-
-                        // Windows registry
-                        IDictionary<string, string> registryKeys = new Dictionary<string, string>
-                        {
-                            [@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 413150"] = "InstallLocation", // Steam
-                            [@"SOFTWARE\WOW6432Node\GOG.com\Games\1453375253"] = "PATH", // GOG on 64-bit Windows
-                        };
-                        foreach (var pair in registryKeys)
-                        {
-                            string path = this.GetLocalMachineRegistryValue(pair.Key, pair.Value);
-                            if (!string.IsNullOrWhiteSpace(path))
-                                yield return path;
-                        }
-
-                        // via Steam library path
-                        string steampath = this.GetCurrentUserRegistryValue(@"Software\Valve\Steam", "SteamPath");
-                        if (steampath != null)
-                            yield return Path.Combine(steampath.Replace('/', '\\'), @"steamapps\common\Stardew Valley");
-                    }
-                    break;
-
-                default:
-                    throw new InvalidOperationException($"Unknown platform '{platform}'.");
-            }
-        }
 
         /// <summary>Get the absolute file or folder paths to remove when uninstalling SMAPI.</summary>
         /// <param name="installDir">The folder for Stardew Valley and SMAPI.</param>
@@ -112,6 +54,7 @@ namespace StardewModdingApi.Installer
             yield return GetInstallPath("StardewModdingAPI.pdb");      // Windows only
             yield return GetInstallPath("StardewModdingAPI.xml");
             yield return GetInstallPath("smapi-internal");
+            yield return GetInstallPath("steam_appid.txt");
 
             // obsolete
             yield return GetInstallPath(Path.Combine("Mods", ".cache"));     // 1.3-1.4
@@ -133,11 +76,9 @@ namespace StardewModdingApi.Installer
             yield return GetInstallPath("StardewModdingAPI.Toolkit.CoreInterfaces.dll"); // moved in 2.8
             yield return GetInstallPath("StardewModdingAPI.Toolkit.CoreInterfaces.pdb"); // moved in 2.8
             yield return GetInstallPath("StardewModdingAPI.Toolkit.CoreInterfaces.xml"); // moved in 2.8
-            yield return GetInstallPath("StardewModdingAPI.xml");             // moved in 2.8
             yield return GetInstallPath("System.Numerics.dll");               // moved in 2.8
             yield return GetInstallPath("System.Runtime.Caching.dll");        // moved in 2.8
             yield return GetInstallPath("System.ValueTuple.dll");             // moved in 2.8
-            yield return GetInstallPath("steam_appid.txt");                   // moved in 2.8
 
             if (modsDir.Exists)
             {
@@ -187,8 +128,9 @@ namespace StardewModdingApi.Installer
             ** Step 1: initial setup
             *********/
             /****
-            ** Get platform & set window title
+            ** Get basic info & set window title
             ****/
+            ModToolkit toolkit = new ModToolkit();
             Platform platform = EnvironmentUtility.DetectPlatform();
             Console.Title = $"SMAPI {this.GetDisplayVersion(this.GetType().Assembly.GetName().Version)} installer on {platform} {EnvironmentUtility.GetFriendlyPlatformName(platform)}";
             Console.WriteLine();
@@ -324,7 +266,7 @@ namespace StardewModdingApi.Installer
                 ****/
                 // get game path
                 this.PrintInfo("Where is your game folder?");
-                DirectoryInfo installDir = this.InteractivelyGetInstallPath(platform, gamePathArg);
+                DirectoryInfo installDir = this.InteractivelyGetInstallPath(platform, toolkit, gamePathArg);
                 if (installDir == null)
                 {
                     this.PrintError("Failed finding your game path.");
@@ -490,7 +432,6 @@ namespace StardewModdingApi.Installer
                     {
                         this.PrintDebug("Adding bundled mods...");
 
-                        ModToolkit toolkit = new ModToolkit();
                         ModFolder[] targetMods = toolkit.GetModFolders(paths.ModsPath).ToArray();
                         foreach (ModFolder sourceMod in toolkit.GetModFolders(bundledModsDir.FullName))
                         {
@@ -596,32 +537,6 @@ namespace StardewModdingApi.Installer
                 default:
                     return scheme.ToString();
             }
-        }
-
-        /// <summary>Get the value of a key in the Windows HKLM registry.</summary>
-        /// <param name="key">The full path of the registry key relative to HKLM.</param>
-        /// <param name="name">The name of the value.</param>
-        private string GetLocalMachineRegistryValue(string key, string name)
-        {
-            RegistryKey localMachine = Environment.Is64BitOperatingSystem ? RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64) : Registry.LocalMachine;
-            RegistryKey openKey = localMachine.OpenSubKey(key);
-            if (openKey == null)
-                return null;
-            using (openKey)
-                return (string)openKey.GetValue(name);
-        }
-
-        /// <summary>Get the value of a key in the Windows HKCU registry.</summary>
-        /// <param name="key">The full path of the registry key relative to HKCU.</param>
-        /// <param name="name">The name of the value.</param>
-        private string GetCurrentUserRegistryValue(string key, string name)
-        {
-            RegistryKey currentuser = Environment.Is64BitOperatingSystem ? RegistryKey.OpenBaseKey(RegistryHive.CurrentUser, RegistryView.Registry64) : Registry.CurrentUser;
-            RegistryKey openKey = currentuser.OpenSubKey(key);
-            if (openKey == null)
-                return null;
-            using (openKey)
-                return (string)openKey.GetValue(name);
         }
 
         /// <summary>Print a message without formatting.</summary>
@@ -789,8 +704,9 @@ namespace StardewModdingApi.Installer
 
         /// <summary>Interactively locate the game install path to update.</summary>
         /// <param name="platform">The current platform.</param>
+        /// <param name="toolkit">The mod toolkit.</param>
         /// <param name="specifiedPath">The path specified as a command-line argument (if any), which should override automatic path detection.</param>
-        private DirectoryInfo InteractivelyGetInstallPath(Platform platform, string specifiedPath)
+        private DirectoryInfo InteractivelyGetInstallPath(Platform platform, ModToolkit toolkit, string specifiedPath)
         {
             // get executable name
             string executableFilename = EnvironmentUtility.GetExecutableName(platform);
@@ -813,18 +729,7 @@ namespace StardewModdingApi.Installer
             }
 
             // get installed paths
-            DirectoryInfo[] defaultPaths =
-                (
-                    from path in this.GetDefaultInstallPaths(platform).Distinct(StringComparer.InvariantCultureIgnoreCase)
-                    let dir = new DirectoryInfo(path)
-                    where dir.Exists && dir.EnumerateFiles(executableFilename).Any()
-                    select dir
-                )
-                .GroupBy(p => p.FullName, StringComparer.InvariantCultureIgnoreCase) // ignore duplicate paths
-                .Select(p => p.First())
-                .ToArray();
-
-            // choose where to install
+            DirectoryInfo[] defaultPaths = toolkit.GetGameFolders().ToArray();
             if (defaultPaths.Any())
             {
                 // only one path

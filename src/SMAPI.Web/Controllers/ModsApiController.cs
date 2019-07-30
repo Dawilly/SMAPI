@@ -2,17 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using StardewModdingAPI.Toolkit;
 using StardewModdingAPI.Toolkit.Framework.Clients.WebApi;
 using StardewModdingAPI.Toolkit.Framework.Clients.Wiki;
 using StardewModdingAPI.Toolkit.Framework.ModData;
 using StardewModdingAPI.Toolkit.Framework.UpdateData;
+using StardewModdingAPI.Web.Framework.Caching.Mods;
+using StardewModdingAPI.Web.Framework.Caching.Wiki;
 using StardewModdingAPI.Web.Framework.Clients.Chucklefish;
 using StardewModdingAPI.Web.Framework.Clients.GitHub;
 using StardewModdingAPI.Web.Framework.Clients.ModDrop;
@@ -33,17 +33,17 @@ namespace StardewModdingAPI.Web.Controllers
         /// <summary>The mod repositories which provide mod metadata.</summary>
         private readonly IDictionary<ModRepositoryKey, IModRepository> Repositories;
 
-        /// <summary>The cache in which to store mod metadata.</summary>
-        private readonly IMemoryCache Cache;
+        /// <summary>The cache in which to store wiki data.</summary>
+        private readonly IWikiCacheRepository WikiCache;
+
+        /// <summary>The cache in which to store mod data.</summary>
+        private readonly IModCacheRepository ModCache;
 
         /// <summary>The number of minutes successful update checks should be cached before refetching them.</summary>
         private readonly int SuccessCacheMinutes;
 
         /// <summary>The number of minutes failed update checks should be cached before refetching them.</summary>
         private readonly int ErrorCacheMinutes;
-
-        /// <summary>A regex which matches SMAPI-style semantic version.</summary>
-        private readonly string VersionRegex;
 
         /// <summary>The internal mod metadata list.</summary>
         private readonly ModDatabase ModDatabase;
@@ -57,22 +57,23 @@ namespace StardewModdingAPI.Web.Controllers
         *********/
         /// <summary>Construct an instance.</summary>
         /// <param name="environment">The web hosting environment.</param>
-        /// <param name="cache">The cache in which to store mod metadata.</param>
+        /// <param name="wikiCache">The cache in which to store wiki data.</param>
+        /// <param name="modCache">The cache in which to store mod metadata.</param>
         /// <param name="configProvider">The config settings for mod update checks.</param>
         /// <param name="chucklefish">The Chucklefish API client.</param>
         /// <param name="github">The GitHub API client.</param>
         /// <param name="modDrop">The ModDrop API client.</param>
         /// <param name="nexus">The Nexus API client.</param>
-        public ModsApiController(IHostingEnvironment environment, IMemoryCache cache, IOptions<ModUpdateCheckConfig> configProvider, IChucklefishClient chucklefish, IGitHubClient github, IModDropClient modDrop, INexusClient nexus)
+        public ModsApiController(IHostingEnvironment environment, IWikiCacheRepository wikiCache, IModCacheRepository modCache, IOptions<ModUpdateCheckConfig> configProvider, IChucklefishClient chucklefish, IGitHubClient github, IModDropClient modDrop, INexusClient nexus)
         {
-            this.ModDatabase = new ModToolkit().GetModDatabase(Path.Combine(environment.WebRootPath, "StardewModdingAPI.metadata.json"));
+            this.ModDatabase = new ModToolkit().GetModDatabase(Path.Combine(environment.WebRootPath, "SMAPI.metadata.json"));
             ModUpdateCheckConfig config = configProvider.Value;
             this.CompatibilityPageUrl = config.CompatibilityPageUrl;
 
-            this.Cache = cache;
+            this.WikiCache = wikiCache;
+            this.ModCache = modCache;
             this.SuccessCacheMinutes = config.SuccessCacheMinutes;
             this.ErrorCacheMinutes = config.ErrorCacheMinutes;
-            this.VersionRegex = config.SemanticVersionRegex;
             this.Repositories =
                 new IModRepository[]
                 {
@@ -93,7 +94,7 @@ namespace StardewModdingAPI.Web.Controllers
                 return new ModEntryModel[0];
 
             // fetch wiki data
-            WikiModEntry[] wikiData = await this.GetWikiDataAsync();
+            WikiModEntry[] wikiData = this.WikiCache.GetWikiMods().Select(p => p.GetModel()).ToArray();
             IDictionary<string, ModEntryModel> mods = new Dictionary<string, ModEntryModel>(StringComparer.CurrentCultureIgnoreCase);
             foreach (ModSearchEntryModel mod in model.Mods)
             {
@@ -122,18 +123,26 @@ namespace StardewModdingAPI.Web.Controllers
             // crossreference data
             ModDataRecord record = this.ModDatabase.Get(search.ID);
             WikiModEntry wikiEntry = wikiData.FirstOrDefault(entry => entry.ID.Contains(search.ID.Trim(), StringComparer.InvariantCultureIgnoreCase));
-            string[] updateKeys = this.GetUpdateKeys(search.UpdateKeys, record, wikiEntry).ToArray();
+            UpdateKey[] updateKeys = this.GetUpdateKeys(search.UpdateKeys, record, wikiEntry).ToArray();
 
             // get latest versions
             ModEntryModel result = new ModEntryModel { ID = search.ID };
             IList<string> errors = new List<string>();
-            foreach (string updateKey in updateKeys)
+            foreach (UpdateKey updateKey in updateKeys)
             {
+                // validate update key
+                if (!updateKey.LooksValid)
+                {
+                    errors.Add($"The update key '{updateKey}' isn't in a valid format. It should contain the site key and mod ID like 'Nexus:541'.");
+                    continue;
+                }
+
                 // fetch data
                 ModInfoModel data = await this.GetInfoForUpdateKeyAsync(updateKey);
                 if (data.Error != null)
                 {
-                    errors.Add(data.Error);
+                    if (data.Status != RemoteModStatus.DoesNotExist)
+                        errors.Add(data.Error);
                     continue;
                 }
 
@@ -218,60 +227,38 @@ namespace StardewModdingAPI.Web.Controllers
             return current != null && (other == null || other.IsOlderThan(current));
         }
 
-        /// <summary>Get mod data from the wiki compatibility list.</summary>
-        private async Task<WikiModEntry[]> GetWikiDataAsync()
-        {
-            ModToolkit toolkit = new ModToolkit();
-            return await this.Cache.GetOrCreateAsync("_wiki", async entry =>
-            {
-                try
-                {
-                    WikiModEntry[] entries = (await toolkit.GetWikiCompatibilityListAsync()).Mods;
-                    entry.AbsoluteExpiration = DateTimeOffset.UtcNow.AddMinutes(this.SuccessCacheMinutes);
-                    return entries;
-                }
-                catch
-                {
-                    entry.AbsoluteExpiration = DateTimeOffset.UtcNow.AddMinutes(this.ErrorCacheMinutes);
-                    return new WikiModEntry[0];
-                }
-            });
-        }
-
         /// <summary>Get the mod info for an update key.</summary>
         /// <param name="updateKey">The namespaced update key.</param>
-        private async Task<ModInfoModel> GetInfoForUpdateKeyAsync(string updateKey)
+        private async Task<ModInfoModel> GetInfoForUpdateKeyAsync(UpdateKey updateKey)
         {
-            // parse update key
-            UpdateKey parsed = UpdateKey.Parse(updateKey);
-            if (!parsed.LooksValid)
-                return new ModInfoModel($"The update key '{updateKey}' isn't in a valid format. It should contain the site key and mod ID like 'Nexus:541'.");
-
-            // get matching repository
-            if (!this.Repositories.TryGetValue(parsed.Repository, out IModRepository repository))
-                return new ModInfoModel($"There's no mod site with key '{parsed.Repository}'. Expected one of [{string.Join(", ", this.Repositories.Keys)}].");
-
-            // fetch mod info
-            return await this.Cache.GetOrCreateAsync($"{repository.VendorKey}:{parsed.ID}".ToLower(), async entry =>
+            // get mod
+            if (!this.ModCache.TryGetMod(updateKey.Repository, updateKey.ID, out CachedMod mod) || this.ModCache.IsStale(mod.LastUpdated, mod.FetchStatus == RemoteModStatus.TemporaryError ? this.ErrorCacheMinutes : this.SuccessCacheMinutes))
             {
-                ModInfoModel result = await repository.GetModInfoAsync(parsed.ID);
+                // get site
+                if (!this.Repositories.TryGetValue(updateKey.Repository, out IModRepository repository))
+                    return new ModInfoModel().SetError(RemoteModStatus.DoesNotExist, $"There's no mod site with key '{updateKey.Repository}'. Expected one of [{string.Join(", ", this.Repositories.Keys)}].");
+
+                // fetch mod
+                ModInfoModel result = await repository.GetModInfoAsync(updateKey.ID);
                 if (result.Error == null)
                 {
                     if (result.Version == null)
-                        result.Error = $"The update key '{updateKey}' matches a mod with no version number.";
-                    else if (!Regex.IsMatch(result.Version, this.VersionRegex, RegexOptions.CultureInvariant | RegexOptions.IgnoreCase))
-                        result.Error = $"The update key '{updateKey}' matches a mod with invalid semantic version '{result.Version}'.";
+                        result.SetError(RemoteModStatus.InvalidData, $"The update key '{updateKey}' matches a mod with no version number.");
+                    else if (!SemanticVersion.TryParse(result.Version, out _))
+                        result.SetError(RemoteModStatus.InvalidData, $"The update key '{updateKey}' matches a mod with invalid semantic version '{result.Version}'.");
                 }
-                entry.AbsoluteExpiration = DateTimeOffset.UtcNow.AddMinutes(result.Error == null ? this.SuccessCacheMinutes : this.ErrorCacheMinutes);
-                return result;
-            });
+
+                // cache mod
+                this.ModCache.SaveMod(repository.VendorKey, updateKey.ID, result, out mod);
+            }
+            return mod.GetModel();
         }
 
         /// <summary>Get update keys based on the available mod metadata, while maintaining the precedence order.</summary>
         /// <param name="specifiedKeys">The specified update keys.</param>
         /// <param name="record">The mod's entry in SMAPI's internal database.</param>
         /// <param name="entry">The mod's entry in the wiki list.</param>
-        public IEnumerable<string> GetUpdateKeys(string[] specifiedKeys, ModDataRecord record, WikiModEntry entry)
+        public IEnumerable<UpdateKey> GetUpdateKeys(string[] specifiedKeys, ModDataRecord record, WikiModEntry entry)
         {
             IEnumerable<string> GetRaw()
             {
@@ -299,10 +286,14 @@ namespace StardewModdingAPI.Web.Controllers
                 }
             }
 
-            HashSet<string> seen = new HashSet<string>(StringComparer.InvariantCulture);
-            foreach (string key in GetRaw())
+            HashSet<UpdateKey> seen = new HashSet<UpdateKey>();
+            foreach (string rawKey in GetRaw())
             {
-                if (!string.IsNullOrWhiteSpace(key) && seen.Add(key))
+                if (string.IsNullOrWhiteSpace(rawKey))
+                    continue;
+
+                UpdateKey key = UpdateKey.Parse(rawKey);
+                if (seen.Add(key))
                     yield return key;
             }
         }

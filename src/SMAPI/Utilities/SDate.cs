@@ -86,7 +86,7 @@ namespace StardewModdingAPI.Utilities
             seasonIndex %= 4;
 
             // get year
-            int year = hashCode / (this.Seasons.Length * this.DaysInSeason) + 1;
+            int year = (int)Math.Ceiling(hashCode / (this.Seasons.Length * this.DaysInSeason * 1m));
 
             // create date
             return new SDate(day, this.Seasons[seasonIndex], year);
@@ -192,7 +192,7 @@ namespace StardewModdingAPI.Utilities
                 throw new ArgumentException($"Unknown season '{season}', must be one of [{string.Join(", ", this.Seasons)}].");
             if (day < 0 || day > this.DaysInSeason)
                 throw new ArgumentException($"Invalid day '{day}', must be a value from 1 to {this.DaysInSeason}.");
-            if(day == 0 && !(allowDayZero && this.IsDayZero(day, season, year)))
+            if (day == 0 && !(allowDayZero && this.IsDayZero(day, season, year)))
                 throw new ArgumentException($"Invalid day '{day}', must be a value from 1 to {this.DaysInSeason}.");
             if (year < 1)
                 throw new ArgumentException($"Invalid year '{year}', must be at least 1.");

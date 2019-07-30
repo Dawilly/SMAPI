@@ -15,7 +15,7 @@ namespace StardewModdingAPI.Web.Framework.LogParsing
         ** Fields
         *********/
         /// <summary>A regex pattern matching the start of a SMAPI message.</summary>
-        private readonly Regex MessageHeaderPattern = new Regex(@"^\[(?<time>\d\d:\d\d:\d\d) (?<level>[a-z]+) +(?<modName>[^\]]+)\] ", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private readonly Regex MessageHeaderPattern = new Regex(@"^\[(?<time>\d\d[:\.]\d\d[:\.]\d\d) (?<level>[a-z]+) +(?<modName>[^\]]+)\] ", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         /// <summary>A regex pattern matching SMAPI's initial platform info message.</summary>
         private readonly Regex InfoLinePattern = new Regex(@"^SMAPI (?<apiVersion>.+) with Stardew Valley (?<gameVersion>.+) on (?<os>.+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -119,7 +119,11 @@ namespace StardewModdingAPI.Web.Framework.LogParsing
 
                         // mod list
                         if (!inModList && message.Level == LogLevel.Info && this.ModListStartPattern.IsMatch(message.Text))
+                        {
                             inModList = true;
+                            message.IsStartOfSection = true;
+                            message.Section = LogSection.ModsList;
+                        }
                         else if (inModList)
                         {
                             Match match = this.ModListEntryPattern.Match(message.Text);
@@ -128,11 +132,17 @@ namespace StardewModdingAPI.Web.Framework.LogParsing
                             string author = match.Groups["author"].Value;
                             string description = match.Groups["description"].Value;
                             mods[name] = new LogModInfo { Name = name, Author = author, Version = version, Description = description, Loaded = true };
+
+                            message.Section = LogSection.ModsList;
                         }
 
                         // content pack list
                         else if (!inContentPackList && message.Level == LogLevel.Info && this.ContentPackListStartPattern.IsMatch(message.Text))
+                        {
                             inContentPackList = true;
+                            message.IsStartOfSection = true;
+                            message.Section = LogSection.ContentPackList;
+                        }
                         else if (inContentPackList)
                         {
                             Match match = this.ContentPackListEntryPattern.Match(message.Text);
@@ -142,11 +152,17 @@ namespace StardewModdingAPI.Web.Framework.LogParsing
                             string description = match.Groups["description"].Value;
                             string forMod = match.Groups["for"].Value;
                             mods[name] = new LogModInfo { Name = name, Author = author, Version = version, Description = description, ContentPackFor = forMod, Loaded = true };
+
+                            message.Section = LogSection.ContentPackList;
                         }
 
                         // mod update list
                         else if (!inModUpdateList && message.Level == LogLevel.Alert && this.ModUpdateListStartPattern.IsMatch(message.Text))
+                        {
                             inModUpdateList = true;
+                            message.IsStartOfSection = true;
+                            message.Section = LogSection.ModUpdateList;
+                        }
                         else if (inModUpdateList)
                         {
                             Match match = this.ModUpdateListEntryPattern.Match(message.Text);
@@ -162,6 +178,8 @@ namespace StardewModdingAPI.Web.Framework.LogParsing
                             {
                                 mods[name] = new LogModInfo { Name = name, UpdateVersion = version, UpdateLink = link, Loaded = false };
                             }
+
+                            message.Section = LogSection.ModUpdateList;
                         }
 
                         else if (message.Level == LogLevel.Alert && this.SMAPIUpdatePattern.IsMatch(message.Text))
