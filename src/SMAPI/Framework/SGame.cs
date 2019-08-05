@@ -430,17 +430,6 @@ namespace StardewModdingAPI.Framework
                 }
 
                 /*********
-<<<<<<< HEAD
-                ** Update input
-                *********/
-                // This should *always* run, even when suppressing mod events, since the game uses
-                // this too. For example, doing this after mod event suppression would prevent the
-                // user from doing anything on the overnight shipping screen.
-                SInputState inputState = this.Input;
-                if (this.IsActive)
-                    inputState.TrueUpdate();
-
-                /*********
                 ** Save events + suppress events during save
                 *********/
                 // While the game is writing to the save file in the background, mods can unexpectedly
@@ -491,8 +480,6 @@ namespace StardewModdingAPI.Framework
                 }
 
                 /*********
-=======
->>>>>>> upstream/develop
                 ** Update context
                 *********/
                 bool wasWorldReady = Context.IsWorldReady;
@@ -867,6 +854,7 @@ namespace StardewModdingAPI.Framework
                     IClickableMenu activeClickableMenu = Game1.activeClickableMenu;
                     if (activeClickableMenu != null)
                     {
+                        /// MENU DRAWING ///
                         Game1.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, (DepthStencilState)null, (RasterizerState)null, this.Shaders.Apply);
                         events.Rendering.RaiseEmpty();
                         try
@@ -885,6 +873,7 @@ namespace StardewModdingAPI.Framework
                     }
                     if (Game1.overlayMenu != null)
                     {
+                        /// OVERLAY MENU? ///
                         Game1.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, (DepthStencilState)null, (RasterizerState)null, this.Shaders.Apply);
                         Game1.overlayMenu.draw(Game1.spriteBatch);
                         Game1.spriteBatch.End();
@@ -1036,7 +1025,8 @@ namespace StardewModdingAPI.Framework
                             {
                                 this.GraphicsDevice.SetRenderTarget(Game1.lightmap);
                                 this.GraphicsDevice.Clear(Color.White * 0.0f);
-                                Game1.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.NonPremultiplied, SamplerState.PointClamp, (DepthStencilState)null, (RasterizerState)null, this.Shaders.Apply);
+                                //Draw Lighting?
+                                Game1.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.NonPremultiplied, SamplerState.PointClamp, (DepthStencilState)null, (RasterizerState)null);
                                 if (++batchOpens == 1)
                                     events.Rendering.RaiseEmpty();
                                 Color color1 = !Game1.currentLocation.Name.StartsWith("UndergroundMine") || !(Game1.currentLocation is MineShaft) ? (Game1.ambientLight.Equals(Color.White) || Game1.isRaining && (bool)((NetFieldBase<bool, NetBool>)Game1.currentLocation.isOutdoors) ? Game1.outdoorLight : Game1.ambientLight) : (Game1.currentLocation as MineShaft).getLightingColor(gameTime);
@@ -1291,6 +1281,7 @@ namespace StardewModdingAPI.Framework
                             Game1.spriteBatch.End();
                             if (Game1.drawLighting)
                             {
+                                /// TEST 1
                                 Game1.spriteBatch.Begin(SpriteSortMode.Deferred, this.lightingBlend, SamplerState.LinearClamp, (DepthStencilState)null, (RasterizerState)null, this.Shaders.Apply);
                                 Game1.spriteBatch.Draw((Texture2D)Game1.lightmap, Vector2.Zero, new Microsoft.Xna.Framework.Rectangle?(Game1.lightmap.Bounds), Color.White, 0.0f, Vector2.Zero, (float)(Game1.options.lightingQuality / 2), SpriteEffects.None, 1f);
                                 if (Game1.isRaining && (bool)((NetFieldBase<bool, NetBool>)Game1.currentLocation.isOutdoors) && !(Game1.currentLocation is Desert))
