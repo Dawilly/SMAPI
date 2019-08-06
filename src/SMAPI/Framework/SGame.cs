@@ -174,7 +174,7 @@ namespace StardewModdingAPI.Framework
             // init observables
             Game1.locations = new ObservableCollection<GameLocation>();
 
-
+            base.Window.ClientSizeChanged += this.WindowSizeChange;
         }
 
         /// <summary>Initialise just before the game's first update tick.</summary>
@@ -576,11 +576,6 @@ namespace StardewModdingAPI.Framework
                             this.Monitor.Log($"Events: window size changed to {state.WindowSize.New}.", LogLevel.Trace);
 
                         events.WindowResized.Raise(new WindowResizedEventArgs(state.WindowSize.Old, state.WindowSize.New));
-
-                        Microsoft.Xna.Framework.Rectangle clientBounds = base.Window.ClientBounds;
-                        int sw = Math.Min(4096, (int)((float)clientBounds.Width * (1f / Game1.options.zoomLevel)));
-                        int sh = Math.Min(4096, (int)((float)clientBounds.Height * (1f / Game1.options.zoomLevel)));
-                        this.smapiScreen = new RenderTarget2D(Game1.graphics.GraphicsDevice, sw, sh);
                     }
 
                     /*********
@@ -909,7 +904,8 @@ namespace StardewModdingAPI.Framework
                         Game1.spriteBatch.End();
                     }
                     //TO-DO: Remove this / Reimplement this. See the bottom of this method.
-                    this.renderScreenBuffer();
+                    //this.renderScreenBuffer();
+                    this.PostProcessing();
                 }
                 else
                 {
@@ -1041,7 +1037,7 @@ namespace StardewModdingAPI.Framework
                             Game1.overlayMenu.draw(Game1.spriteBatch);
                             Game1.spriteBatch.End();
                         }
-                        //base.Draw(gameTime);
+                        this.PostProcessing();
                     }
                     else
                     {
@@ -1534,23 +1530,39 @@ namespace StardewModdingAPI.Framework
 
                         //Re-implemented renderScreenBuffer(). This now targets smapiScreen,
                         //rather than the back buffer like the original.
-                        if (Game1.options.zoomLevel != 1f) {
-                            base.GraphicsDevice.SetRenderTarget(this.smapiScreen);
-                            base.GraphicsDevice.Clear(Game1.bgColor);
-                            Game1.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.LinearClamp, DepthStencilState.Default, RasterizerState.CullNone);
-                            Game1.spriteBatch.Draw(this.screen, Vector2.Zero, new Microsoft.Xna.Framework.Rectangle?(this.screen.Bounds), Color.White, 0f, Vector2.Zero, Game1.options.zoomLevel, SpriteEffects.None, 1f);
-                            Game1.spriteBatch.End();
-                        }
 
                         //Post Processing. Once everything has been done, draw to the backbuffer with the shader applied. 
-                        base.GraphicsDevice.SetRenderTarget(null);
-                        base.GraphicsDevice.Clear(Game1.bgColor);
-                        Game1.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.LinearClamp, DepthStencilState.Default, RasterizerState.CullNone, this.Shaders.Apply);
-                        Game1.spriteBatch.Draw(this.smapiScreen, Vector2.Zero, new Microsoft.Xna.Framework.Rectangle?(this.screen.Bounds), Color.White, 0f, Vector2.Zero, Game1.options.zoomLevel, SpriteEffects.None, 1f);
-                        Game1.spriteBatch.End();
+                        this.PostProcessing();
                     }
                 }
             }
+        }
+
+        private void PostProcessing() {
+            if (Game1.options.zoomLevel != 1f) {
+                base.GraphicsDevice.SetRenderTarget(this.smapiScreen);
+                base.GraphicsDevice.Clear(Game1.bgColor);
+                Game1.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.LinearClamp, DepthStencilState.Default, RasterizerState.CullNone);
+                Game1.spriteBatch.Draw(this.screen, Vector2.Zero, new Microsoft.Xna.Framework.Rectangle?(this.screen.Bounds), Color.White, 0f, Vector2.Zero, Game1.options.zoomLevel, SpriteEffects.None, 1f);
+                Game1.spriteBatch.End();
+            }
+
+            base.GraphicsDevice.SetRenderTarget(null);
+            base.GraphicsDevice.Clear(Game1.bgColor);
+            Game1.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.LinearClamp, DepthStencilState.Default, RasterizerState.CullNone, this.Shaders.Apply);
+            Game1.spriteBatch.Draw(this.smapiScreen, Vector2.Zero, new Microsoft.Xna.Framework.Rectangle?(this.screen.Bounds), Color.White, 0f, Vector2.Zero, Game1.options.zoomLevel, SpriteEffects.None, 1f);
+            Game1.spriteBatch.End();
+        }
+
+        private void WindowSizeChange(object sender, EventArgs e) {
+            base.Window.ClientSizeChanged -= this.WindowSizeChange;
+
+            Microsoft.Xna.Framework.Rectangle clientBounds = base.Window.ClientBounds;
+            int sw = Math.Min(4096, (int)((float)clientBounds.Width * (1f / Game1.options.zoomLevel)));
+            int sh = Math.Min(4096, (int)((float)clientBounds.Height * (1f / Game1.options.zoomLevel)));
+            this.smapiScreen = new RenderTarget2D(Game1.graphics.GraphicsDevice, sw, sh);
+
+            base.Window.ClientSizeChanged += this.WindowSizeChange;
         }
 
         /// <summary>Immediately exit the game without saving. This should only be invoked when an irrecoverable fatal error happens that risks save corruption or game-breaking bugs.</summary>
