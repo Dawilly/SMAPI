@@ -7,7 +7,8 @@ namespace StardewModdingAPI.Framework {
         private IList<Effect> effects;
         private int selected;
 
-        public Effect Apply { get {
+        public Effect Apply {
+            get {
                 return this.effects[this.selected];
             }
         }

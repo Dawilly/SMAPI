@@ -841,6 +841,10 @@ namespace StardewModdingAPI.Framework
         public RenderTarget2D smapiScreen {
             get { return this._smapiScreen; }
             set {
+                //For some reason, this causes the game to crash.
+                //The game seems to trigger this tree times right off
+                //starting.
+
                 //if (this._smapiScreen != null) {
                 //    this._smapiScreen.Dispose();
                 //    this._smapiScreen = null;
@@ -869,17 +873,19 @@ namespace StardewModdingAPI.Framework
                 this.GraphicsDevice.Clear(Game1.bgColor);
             else
             {
+                // Check the zoom level. If not 1.0, draw to the first intermediate buffer.
+                // Otherwise draw the secondary intermediate buffer (Smapi's TargetRender2D).
                 if ((double)Game1.options.zoomLevel != 1.0)
                     this.GraphicsDevice.SetRenderTarget(this.screen);
                 else
                     this.GraphicsDevice.SetRenderTarget(this.smapiScreen);
+
                 if (this.IsSaving)
                 {
                     this.GraphicsDevice.Clear(Game1.bgColor);
                     IClickableMenu activeClickableMenu = Game1.activeClickableMenu;
                     if (activeClickableMenu != null)
                     {
-                        /// MENU DRAWING ///
                         Game1.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, (DepthStencilState)null, (RasterizerState)null, null);
                         events.Rendering.RaiseEmpty();
                         try
@@ -898,11 +904,11 @@ namespace StardewModdingAPI.Framework
                     }
                     if (Game1.overlayMenu != null)
                     {
-                        /// OVERLAY MENU? ///
                         Game1.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, (DepthStencilState)null, (RasterizerState)null, null);
                         Game1.overlayMenu.draw(Game1.spriteBatch);
                         Game1.spriteBatch.End();
                     }
+                    //TO-DO: Remove this / Reimplement this. See the bottom of this method.
                     this.renderScreenBuffer();
                 }
                 else
@@ -930,6 +936,7 @@ namespace StardewModdingAPI.Framework
                         this.drawOverlays(Game1.spriteBatch);
                         if ((double)Game1.options.zoomLevel != 1.0)
                         {
+                            //!! Altered. Draw to Smapi's RenderTarget2D, rather than to the backbuffer.
                             this.GraphicsDevice.SetRenderTarget(this.smapiScreen);
                             this.GraphicsDevice.Clear(Game1.bgColor);
                             Game1.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp, DepthStencilState.Default, RasterizerState.CullNone, null);
@@ -964,6 +971,7 @@ namespace StardewModdingAPI.Framework
                         this.drawOverlays(Game1.spriteBatch);
                         if ((double)Game1.options.zoomLevel == 1.0)
                             return;
+                        //!! Altered. Draw to Smapi's RenderTarget2D, rather than to the backbuffer.
                         this.GraphicsDevice.SetRenderTarget(this.smapiScreen);
                         this.GraphicsDevice.Clear(Game1.bgColor);
                         Game1.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp, DepthStencilState.Default, RasterizerState.CullNone, null);
@@ -993,6 +1001,7 @@ namespace StardewModdingAPI.Framework
                         this.drawOverlays(Game1.spriteBatch);
                         if ((double)Game1.options.zoomLevel == 1.0)
                             return;
+                        //!! Altered. Draw to Smapi's RenderTarget2D, rather than to the backbuffer.
                         this.GraphicsDevice.SetRenderTarget(this.smapiScreen);
                         this.GraphicsDevice.Clear(Game1.bgColor);
                         Game1.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp, DepthStencilState.Default, RasterizerState.CullNone, null);
@@ -1019,6 +1028,7 @@ namespace StardewModdingAPI.Framework
                         this.drawOverlays(Game1.spriteBatch);
                         if ((double)Game1.options.zoomLevel != 1.0)
                         {
+                            //!! Altered. Draw to Smapi's RenderTarget2D, rather than to the backbuffer.
                             this.GraphicsDevice.SetRenderTarget(this.smapiScreen);
                             this.GraphicsDevice.Clear(Game1.bgColor);
                             Game1.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp, DepthStencilState.Default, RasterizerState.CullNone, null);
@@ -1046,11 +1056,12 @@ namespace StardewModdingAPI.Framework
                         }
                         else
                         {
+                            //This is the actual drawing of the world from beyond this point.
+
                             if (Game1.drawLighting)
                             {
                                 this.GraphicsDevice.SetRenderTarget(Game1.lightmap);
                                 this.GraphicsDevice.Clear(Color.White * 0.0f);
-                                //Draw Lighting?
                                 Game1.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.NonPremultiplied, SamplerState.PointClamp, (DepthStencilState)null, (RasterizerState)null);
                                 if (++batchOpens == 1)
                                     events.Rendering.RaiseEmpty();
@@ -1082,6 +1093,7 @@ namespace StardewModdingAPI.Framework
                                     }
                                 }
                                 Game1.spriteBatch.End();
+                                //!! Altered. Draw to Smapi's RenderTarget2D, rather than to the backbuffer.
                                 this.GraphicsDevice.SetRenderTarget((double)Game1.options.zoomLevel == 1.0 ? this.smapiScreen : this.screen);
                             }
                             if (Game1.bloomDay && Game1.bloom != null)
@@ -1517,8 +1529,11 @@ namespace StardewModdingAPI.Framework
                         events.Rendered.RaiseEmpty();
                         Game1.spriteBatch.End();
                         this.drawOverlays(Game1.spriteBatch);
+                        //NOTE: We are wrapping the draws onto SMAPI's RenderTarget2D. This method draws to the back buffer.
                         //this.renderScreenBuffer();
 
+                        //Re-implemented renderScreenBuffer(). This now targets smapiScreen,
+                        //rather than the back buffer like the original.
                         if (Game1.options.zoomLevel != 1f) {
                             base.GraphicsDevice.SetRenderTarget(this.smapiScreen);
                             base.GraphicsDevice.Clear(Game1.bgColor);
@@ -1527,8 +1542,7 @@ namespace StardewModdingAPI.Framework
                             Game1.spriteBatch.End();
                         }
 
-                        /// FILTER TIME OKIE?
-
+                        //Post Processing. Once everything has been done, draw to the backbuffer with the shader applied. 
                         base.GraphicsDevice.SetRenderTarget(null);
                         base.GraphicsDevice.Clear(Game1.bgColor);
                         Game1.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.LinearClamp, DepthStencilState.Default, RasterizerState.CullNone, this.Shaders.Apply);
