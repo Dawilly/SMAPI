@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using StardewModdingAPI.Events;
 using StardewModdingAPI.Framework.Input;
-using StardewModdingAPI.Toolkit.Serialisation;
+using StardewModdingAPI.Toolkit.Serialization;
 
 namespace StardewModdingAPI.Framework.ModHelpers
 {
@@ -32,8 +32,6 @@ namespace StardewModdingAPI.Framework.ModHelpers
 
         /// <summary>An API for accessing private game code.</summary>
         public IReflectionHelper Reflection { get; }
-
-        public IShader Shaders { get; }
 
         /// <summary>an API for fetching metadata about loaded mods.</summary>
         public IModRegistry ModRegistry { get; }
@@ -66,8 +64,7 @@ namespace StardewModdingAPI.Framework.ModHelpers
         /// <param name="translationHelper">An API for reading translations stored in the mod's <c>i18n</c> folder.</param>
         /// <exception cref="ArgumentNullException">An argument is null or empty.</exception>
         /// <exception cref="InvalidOperationException">The <paramref name="modDirectory"/> path does not exist on disk.</exception>
-
-        public ModHelper(string modID, string modDirectory, SInputState inputState, IModEvents events, IContentHelper contentHelper, IContentPackHelper contentPackHelper, ICommandHelper commandHelper, IDataHelper dataHelper, IModRegistry modRegistry, IReflectionHelper reflectionHelper, IMultiplayerHelper multiplayer, IShader shaders, ITranslationHelper translationHelper)
+        public ModHelper(string modID, string modDirectory, SInputState inputState, IModEvents events, IContentHelper contentHelper, IContentPackHelper contentPackHelper, ICommandHelper commandHelper, IDataHelper dataHelper, IModRegistry modRegistry, IReflectionHelper reflectionHelper, IMultiplayerHelper multiplayer, ITranslationHelper translationHelper)
             : base(modID)
         {
             // validate directory
@@ -76,7 +73,7 @@ namespace StardewModdingAPI.Framework.ModHelpers
             if (!Directory.Exists(modDirectory))
                 throw new InvalidOperationException("The specified mod directory does not exist.");
 
-            // initialise
+            // initialize
             this.DirectoryPath = modDirectory;
             this.Content = contentHelper ?? throw new ArgumentNullException(nameof(contentHelper));
             this.ContentPacks = contentPackHelper ?? throw new ArgumentNullException(nameof(contentPackHelper));
@@ -86,7 +83,6 @@ namespace StardewModdingAPI.Framework.ModHelpers
             this.ConsoleCommands = commandHelper ?? throw new ArgumentNullException(nameof(commandHelper));
             this.Reflection = reflectionHelper ?? throw new ArgumentNullException(nameof(reflectionHelper));
             this.Multiplayer = multiplayer ?? throw new ArgumentNullException(nameof(multiplayer));
-            this.Shaders = shaders ?? throw new ArgumentNullException(nameof(shaders));
             this.Translation = translationHelper ?? throw new ArgumentNullException(nameof(translationHelper));
             this.Events = events;
         }

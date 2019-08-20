@@ -83,27 +83,6 @@ smapi.modList = function (mods, enableBeta) {
         // set overall compatibility
         mod.LatestCompatibility = mod.BetaCompatibility || mod.Compatibility;
 
-<<<<<<< HEAD
-        // set SMAPI 3.0 display text
-        switch (mod.Smapi3Status) {
-            case "ok":
-                mod.Smapi3DisplayText = "✓ yes";
-                mod.Smapi3Tooltip = "The latest version of this mod is compatible with SMAPI 3.0.";
-                break;
-
-            case "broken":
-                mod.Smapi3DisplayText = "✖ no";
-                mod.Smapi3Tooltip = "This mod will break in SMAPI 3.0; consider notifying the author.";
-                break;
-
-            default:
-                mod.Smapi3DisplayText = "↻ " + mod.Smapi3Status;
-                mod.Smapi3Tooltip = "This mod has a pending update for SMAPI 3.0 which hasn't been released yet.";
-                break;
-        }
-
-=======
->>>>>>> upstream/develop
         // concatenate searchable text
         mod.SearchableText = [mod.Name, mod.AlternateNames, mod.Author, mod.AlternateAuthors, mod.Compatibility.Summary, mod.BrokeIn];
         if (mod.Compatibility.UnofficialVersion)

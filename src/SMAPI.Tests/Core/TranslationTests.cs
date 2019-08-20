@@ -2,10 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
+using StardewModdingAPI;
 using StardewModdingAPI.Framework.ModHelpers;
 using StardewValley;
 
-namespace StardewModdingAPI.Tests.Core
+namespace SMAPI.Tests.Core
 {
     /// <summary>Unit tests for <see cref="TranslationHelper"/> and <see cref="Translation"/>.</summary>
     [TestFixture]
@@ -245,7 +246,7 @@ namespace StardewModdingAPI.Tests.Core
         [TestCase("{{value}}", "value")]
         [TestCase("{{VaLuE}}", "vAlUe")]
         [TestCase("{{VaLuE   }}", "   vAlUe")]
-        public void Translation_Tokens_KeysAreNormalised(string text, string key)
+        public void Translation_Tokens_KeysAreNormalized(string text, string key)
         {
             // arrange
             string value = Guid.NewGuid().ToString("N");

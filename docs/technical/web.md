@@ -4,27 +4,117 @@
 and update check API.
 
 ## Contents
-* [Overview](#overview)
-  * [Log parser](#log-parser)
-  * [Web API](#web-api)
+* [Log parser](#log-parser)
+* [JSON validator](#json-validator)
+* [Web API](#web-api)
 * [For SMAPI developers](#for-smapi-developers)
   * [Local development](#local-development)
   * [Deploying to Amazon Beanstalk](#deploying-to-amazon-beanstalk)
 
-## Overview
-The `SMAPI.Web` project provides an API and web UI hosted at `*.smapi.io`.
-
-### Log parser
+## Log parser
 The log parser provides a web UI for uploading, parsing, and sharing SMAPI logs. The logs are
-persisted in a compressed form to Pastebin.
+persisted in a compressed form to Pastebin. The log parser lives at https://log.smapi.io.
 
-The log parser lives at https://log.smapi.io.
+## JSON validator
+### Overview
+The JSON validator provides a web UI for uploading and sharing JSON files, and validating them as
+plain JSON or against a predefined format like `manifest.json` or Content Patcher's `content.json`.
+The JSON validator lives at https://json.smapi.io.
 
-### Web API
+### Schema file format
+Schema files are defined in `wwwroot/schemas` using the [JSON Schema](https://json-schema.org/)
+format. The JSON validator UI recognises a superset of the standard fields to change output:
+
+<dl>
+<dt>Documentation URL</dt>
+<dd>
+
+The root schema may have a `@documentationURL` field, which is a web URL for the user
+documentation:
+```js
+"@documentationUrl": "https://stardewvalleywiki.com/Modding:Modder_Guide/APIs/Manifest"
+```
+
+If present, this is shown in the JSON validator UI.
+
+</dd>
+<dt>Error messages</dt>
+<dd>
+
+Any part of the schema can define an `@errorMessages` field, which overrides matching schema
+errors. You can override by error code (recommended), or by error type and a regex pattern matched
+against the error message (more fragile):
+
+```js
+// by error type
+"pattern": "^[a-zA-Z0-9_.-]+\\.dll$",
+"@errorMessages": {
+   "pattern": "Invalid value; must be a filename ending with .dll."
+}
+```
+```js
+// by error type + message pattern
+"@errorMessages": {
+   "oneOf:valid against no schemas": "Missing required field: EntryDll or ContentPackFor.",
+   "oneOf:valid against more than one schema": "Can't specify both EntryDll or ContentPackFor, they're mutually exclusive."
+}
+```
+
+Error messages may contain special tokens:
+
+* The `@value` token is replaced with the error's value field. This is usually (but not always) the
+  original field value.
+* When an error has child errors, by default they're flattened into one message:
+  ```
+  line | field      | error
+  ---- | ---------- | -------------------------------------------------------------------------
+  4    | Changes[0] | JSON does not match schema from 'then'.
+       |            |   ==> Changes[0].ToArea.Y: Invalid type. Expected Integer but got String.
+       |            |   ==> Changes[0].ToArea: Missing required fields: Height.
+  ```
+
+  If you set the message for an error to `$transparent`, the parent error is omitted entirely and
+  the child errors are shown instead:
+  ```
+  line | field               | error
+  ---- | ------------------- | ----------------------------------------------
+  8    | Changes[0].ToArea.Y | Invalid type. Expected Integer but got String.
+  8    | Changes[0].ToArea   | Missing required fields: Height.
+  ```
+
+  The child errors themselves may be marked `$transparent`, etc. If an error has no child errors,
+  this override is ignored.
+
+  Validation errors for `then` blocks are transparent by default, unless overridden.
+
+</dd>
+</dl>
+
+### Using a schema file directly
+You can reference the validator schemas in your JSON file directly using the `$schema` field, for
+text editors that support schema validation. For example:
+```js
+{
+   "$schema": "https://smapi.io/schemas/manifest.json",
+   "Name": "Some mod",
+   ...
+}
+```
+
+Available schemas:
+
+format | schema URL
+------ | ----------
+[SMAPI `manifest.json`](https://stardewvalleywiki.com/Modding:Modder_Guide/APIs/Manifest) | https://smapi.io/schemas/manifest.json
+[Content Patcher `content.json`](https://github.com/Pathoschild/StardewMods/tree/develop/ContentPatcher#readme) | https://smapi.io/schemas/content-patcher.json
+
+## Web API
+### Overview
 SMAPI provides a web API at `api.smapi.io` for use by SMAPI and external tools. The URL includes a
 `{version}` token, which is the SMAPI version for backwards compatibility. This API is publicly
 accessible but not officially released; it may change at any time.
 
+### `/mods` endpoint
 The API has one `/mods` endpoint. This provides mod info, including official versions and URLs
 (from Chucklefish, GitHub, or Nexus), unofficial versions from the wiki, and optional mod metadata
 from the wiki and SMAPI's internal data. This is used by SMAPI to perform update checks, and by
